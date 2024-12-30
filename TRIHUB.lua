@@ -2,14 +2,42 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Criação da janela principal
+-- Variável para controle de exibição da interface
+local isInterfaceVisible = false
+
+-- Criar pop-up inicial
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local Popup = Instance.new("ImageButton", ScreenGui)
+Popup.Name = "Popup"
+Popup.Size = UDim2.new(0, 400, 0, 200)
+Popup.Position = UDim2.new(0.5, -200, 0.5, -100)
+Popup.AnchorPoint = Vector2.new(0.5, 0.5)
+Popup.Image = "rbxassetid://100742801634817"
+Popup.BackgroundTransparency = 1
+
+-- Ocultar pop-up e alternar interface ao clicar
+Popup.MouseButton1Click:Connect(function()
+    isInterfaceVisible = not isInterfaceVisible
+    if isInterfaceVisible then
+        Window:SetVisible(true)
+    else
+        Window:SetVisible(false)
+    end
+end)
+
+-- Criar janela principal
 local Window = Fluent:CreateWindow({
     Title = "TRIHUB",
+    SubTitle = " (discord.gg/NSrkdKHxZn)",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
+    Acrylic = false,
     Theme = "Dark",
     MinimizeKey = Enum.KeyCode.LeftControl
 })
+
+-- Definir como invisível no início
+Window:SetVisible(false)
 
 -- Abas
 local Tabs = {
@@ -36,20 +64,45 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
 end)
 
 -- Jogador: Walk on Water
-local WalkOnWater = false
-Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(function(Value)
-    WalkOnWater = Value
-    local character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
-    local rootPart = character:WaitForChild("HumanoidRootPart")
-
-    if WalkOnWater then
-        rootPart.Touched:Connect(function(hit)
-            if hit.Name == "Ocean" then
-                rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
+-- Misc: Walk On Water
+local WalkZone = "Ocean"
+local WalkOnWater = Tabs.Misc:AddToggle("WalkOnWater", {Title = "Walk On Water", Default = false })
+WalkOnWater:OnChanged(function()
+    for i, v in pairs(workspace.zones.fishing:GetChildren()) do
+        if v.Name == WalkZone then
+            v.CanCollide = WalkOnWater.Value
+            if v.Name == "Ocean" then
+                for _, subZone in pairs(workspace.zones.fishing:GetChildren()) do
+                    if subZone.Name == "Deep Ocean" then
+                        subZone.CanCollide = WalkOnWater.Value
+                    end
+                end
             end
-        end)
+        end
     end
 end)
+
+local WalkOnWaterZone = Tabs.Misc:AddDropdown("WalkOnWaterZone", {
+    Title = "Walk On Water Zone",
+    Values = {"Ocean", "Desolate Deep", "The Depths"},
+    Multi = false,
+    Default = "Ocean",
+})
+WalkOnWaterZone:OnChanged(function(Value)
+    WalkZone = Value
+end)
+
+local WalkSpeedSliderUI = Tabs.Misc:AddSlider("WalkSpeedSliderUI", {
+    Title = "Walk Speed",
+    Min = 16,
+    Max = 200,
+    Default = 16,
+    Rounding = 1,
+})
+WalkSpeedSliderUI:OnChanged(function(value)
+    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+end)
+
 
 -- Teleporte: Teleport Island
 Tabs.Teleporte:AddButton({
@@ -73,32 +126,49 @@ Tabs.Teleporte:AddButton({
     end
 })
 
--- ESP: ESP Player
-Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(function(Value)
-    if Value then
-        for _, player in ipairs(game.Players:GetPlayers()) do
-            if player ~= game.Players.LocalPlayer then
-                local character = player.Character or player.CharacterAdded:Wait()
-                local billboard = Instance.new("BillboardGui", character:WaitForChild("Head"))
-                billboard.Name = "ESP"
-                billboard.Size = UDim2.new(0, 200, 0, 50)
-                billboard.AlwaysOnTop = true
+-- ESP: Funções agrupadas
+local espEnabled = false
 
-                local textLabel = Instance.new("TextLabel", billboard)
-                textLabel.Size = UDim2.new(1, 0, 1, 0)
-                textLabel.BackgroundTransparency = 1
-                textLabel.TextColor3 = Color3.fromRGB(128, 0, 128) -- Roxo
-                textLabel.Text = player.Name
-            end
-        end
-    else
-        for _, player in ipairs(game.Players:GetPlayers()) do
-            if player.Character and player.Character:FindFirstChild("ESP") then
-                player.Character.ESP:Destroy()
-            end
+local function addESP(player)
+    if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+        local billboard = Instance.new("BillboardGui", player.Character.Head)
+        billboard.Name = "ESP"
+        billboard.Size = UDim2.new(0, 200, 0, 50)
+        billboard.AlwaysOnTop = true
+
+        local textLabel = Instance.new("TextLabel", billboard)
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        textLabel.Text = player.Name
+    end
+end
+
+local function removeESP(player)
+    if player.Character and player.Character:FindFirstChild("Head") then
+        local esp = player.Character.Head:FindFirstChild("ESP")
+        if esp then
+            esp:Destroy()
         end
     end
-end)
+end
+
+local function toggleESP(state)
+    espEnabled = state
+    if espEnabled then
+        for _, player in pairs(game.Players:GetPlayers()) do
+            addESP(player)
+        end
+        game.Players.PlayerAdded:Connect(addESP)
+        game.Players.PlayerRemoving:Connect(removeESP)
+    else
+        for _, player in pairs(game.Players:GetPlayers()) do
+            removeESP(player)
+        end
+    end
+end
+
+Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(toggleESP)
 
 -- Configurações
 Tabs.Configuracoes:AddParagraph({
