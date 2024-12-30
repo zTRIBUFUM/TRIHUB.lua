@@ -44,7 +44,7 @@ Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(fun
 
     if WalkOnWater then
         rootPart.Touched:Connect(function(hit)
-            if hit.Name == "Water" then
+            if hit.Name == "Ocean" then
                 rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
             end
         end)
