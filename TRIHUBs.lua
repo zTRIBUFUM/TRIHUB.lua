@@ -44,7 +44,7 @@ Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(fun
 
     if WalkOnWater then
         rootPart.Touched:Connect(function(hit)
-            if hit.Name == "Water" then
+            if hit.Name == "Ocean" then
                 rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
             end
         end)
@@ -152,19 +152,14 @@ local function removeESP(player)
     end
 end
 
-local function refreshESP()
-    for _, player in pairs(game.Players:GetPlayers()) do
-        addESP(player)
-    end
-end
-
 local function toggleESP(state)
     espEnabled = state
     if espEnabled then
-        refreshESP()
+        for _, player in pairs(game.Players:GetPlayers()) do
+            addESP(player)
+        end
         game.Players.PlayerAdded:Connect(addESP)
         game.Players.PlayerRemoving:Connect(removeESP)
-        game:GetService("RunService").Stepped:Connect(refreshESP)
     else
         for _, player in pairs(game.Players:GetPlayers()) do
             removeESP(player)
@@ -173,37 +168,6 @@ local function toggleESP(state)
 end
 
 Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(toggleESP)
-
--- Jogador: Corrida ao segurar Shift
-local SpeedEnabled = false
-local NormalWalkSpeed = 16 -- Velocidade normal de caminhada
-local SprintWalkSpeed = 30 -- Velocidade de corrida
-
-Tabs.Jogador:AddToggle("SprintShift", { Title = "Corrida ao segurar Shift" }):OnChanged(function(Value)
-    SpeedEnabled = Value
-end)
-
-game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and SpeedEnabled and input.KeyCode == Enum.KeyCode.LeftShift then
-        local player = game.Players.LocalPlayer
-        local character = player.Character or player.CharacterAdded:Wait()
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = SprintWalkSpeed
-        end
-    end
-end)
-
-game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.LeftShift then
-        local player = game.Players.LocalPlayer
-        local character = player.Character or player.CharacterAdded:Wait()
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = NormalWalkSpeed
-        end
-    end
-end)
 
 -- Configurações
 Tabs.Configuracoes:AddParagraph({
