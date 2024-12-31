@@ -100,33 +100,34 @@ game:GetService("UserInputService").InputEnded:Connect(function(input)
     end
 end)
 
--- Jogador: Corrida ao segurar Shift
+-- Jogador: WalkSpeed Personalizável
 local SpeedEnabled = false
-local NormalWalkSpeed = 16 -- Velocidade normal de caminhada
-local SprintWalkSpeed = 30 -- Velocidade de corrida
+local CustomWalkSpeed = 16 -- Valor inicial da velocidade
 
-Tabs.Jogador:AddToggle("SprintShift", { Title = "Corrida ao segurar Shift" }):OnChanged(function(Value)
+Tabs.Jogador:AddToggle("WalkSpeedEnabled", { Title = "Ativar WalkSpeed" }):OnChanged(function(Value)
     SpeedEnabled = Value
-end)
-
-game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and SpeedEnabled and input.KeyCode == Enum.KeyCode.LeftShift then
-        local player = game.Players.LocalPlayer
-        local character = player.Character or player.CharacterAdded:Wait()
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = SprintWalkSpeed
-        end
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = SpeedEnabled and CustomWalkSpeed or 16 -- Reseta para o padrão quando desativado
     end
 end)
 
-game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.LeftShift then
+Tabs.Jogador:AddSlider("WalkSpeed", {
+    Title = "Definir Velocidade",
+    Min = 0,
+    Max = 100,
+    Default = 16, -- Valor inicial
+    Increment = 1,
+}):OnChanged(function(Value)
+    CustomWalkSpeed = Value
+    if SpeedEnabled then
         local player = game.Players.LocalPlayer
         local character = player.Character or player.CharacterAdded:Wait()
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            humanoid.WalkSpeed = NormalWalkSpeed
+            humanoid.WalkSpeed = CustomWalkSpeed
         end
     end
 end)
