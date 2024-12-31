@@ -82,7 +82,11 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gameProce
         aimbotConnection = game:GetService("RunService").RenderStepped:Connect(function()
             local closestPlayer = getClosestEnemyPlayer()
             if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
-                workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, closestPlayer.Character.Head.Position)
+                -- Ajuste para suavizar a transição do Aimbot
+                local currentPosition = workspace.CurrentCamera.CFrame.Position
+                local targetPosition = closestPlayer.Character.Head.Position
+                local newCFrame = CFrame.new(currentPosition, targetPosition)
+                workspace.CurrentCamera.CFrame = newCFrame:Lerp(newCFrame, 0.5)
             end
         end)
     end
@@ -127,12 +131,12 @@ game:GetService("UserInputService").InputEnded:Connect(function(input)
     end
 end)
 
--- Teleporte: Teleport Island
+-- Teleporte: Teleport Island - Fish e Teleport Island - BloxFruit
 Tabs.Teleporte:AddButton({
-    Title = "Teleport Island",
+    Title = "Teleport Island - Fish",
     Callback = function()
         Window:Dialog({
-            Title = "Teleport Island",
+            Title = "Teleport Island - Fish",
             Content = "Selecione um local:",
             Buttons = {
                 {
@@ -142,6 +146,45 @@ Tabs.Teleporte:AddButton({
                         local character = player.Character or player.CharacterAdded:Wait()
                         local rootPart = character:WaitForChild("HumanoidRootPart")
                         rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
+                    end
+                },
+                {
+                    Title = "Madeira de musgo",
+                    Callback = function()
+                        local player = game.Players.LocalPlayer
+                        local character = player.Character or player.CharacterAdded:Wait()
+                        local rootPart = character:WaitForChild("HumanoidRootPart")
+                        rootPart.CFrame = CFrame.new(15, 25, 14)
+                    end
+                }
+            }
+        })
+    end
+})
+
+Tabs.Teleporte:AddButton({
+    Title = "Teleport Island - BloxFruit",
+    Callback = function()
+        Window:Dialog({
+            Title = "Teleport Island - BloxFruit",
+            Content = "Selecione um local:",
+            Buttons = {
+                {
+                    Title = "Mansão",
+                    Callback = function()
+                        local player = game.Players.LocalPlayer
+                        local character = player.Character or player.CharacterAdded:Wait()
+                        local rootPart = character:WaitForChild("HumanoidRootPart")
+                        rootPart.CFrame = CFrame.new(14, 28, 39)
+                    end
+                },
+                {
+                    Title = "Castelo do Mar",
+                    Callback = function()
+                        local player = game.Players.LocalPlayer
+                        local character = player.Character or player.CharacterAdded:Wait()
+                        local rootPart = character:WaitForChild("HumanoidRootPart")
+                        rootPart.CFrame = CFrame.new(88, 45, 55)
                     end
                 }
             }
