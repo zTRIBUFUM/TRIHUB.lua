@@ -53,8 +53,13 @@ end)
 
 -- Jogador: Aimbot
 local AimbotEnabled = false
+local AimbotOnHead = false
 Tabs.Jogador:AddToggle("Aimbot", { Title = "Aimbot" }):OnChanged(function(Value)
     AimbotEnabled = Value
+end)
+
+Tabs.Jogador:AddToggle("AimbotOnHead", { Title = "Aimbot na Cabeça" }):OnChanged(function(Value)
+    AimbotOnHead = Value
 end)
 
 local function getClosestPlayer()
@@ -79,7 +84,10 @@ game:GetService("RunService").RenderStepped:Connect(function()
     if AimbotEnabled then
         local closestPlayer = getClosestPlayer()
         if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
-            workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, closestPlayer.Character.Head.Position)
+            local aimPart = AimbotOnHead and closestPlayer.Character.Head or closestPlayer.Character.PrimaryPart
+            if aimPart then
+                workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, aimPart.Position)
+            end
         end
     end
 end)
@@ -106,16 +114,16 @@ Tabs.Teleporte:AddButton({
     end
 })
 
--- ESP: ESP Player
+-- ESP: ESP Player com cores de equipe
 local espEnabled = false
-local espColor = Color3.fromRGB(0, 255, 0) -- Verde por padrão
 
-Tabs.ESP:AddColorPicker("ESPColor", {
-    Title = "Cor da Borda",
-    Default = espColor
-}):OnChanged(function(Color)
-    espColor = Color
-end)
+local function getTeamColor(player)
+    if player.Team == game.Players.LocalPlayer.Team then
+        return Color3.fromRGB(0, 0, 255) -- Azul
+    else
+        return Color3.fromRGB(255, 0, 0) -- Vermelho
+    end
+end
 
 local function addESP(player)
     if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
@@ -128,7 +136,7 @@ local function addESP(player)
             box.Adornee = player.Character
             box.AlwaysOnTop = true
             box.ZIndex = 10
-            box.Color3 = espColor
+            box.Color3 = getTeamColor(player)
             box.Transparency = 0.5
             box.Parent = head
         end
@@ -144,14 +152,19 @@ local function removeESP(player)
     end
 end
 
+local function refreshESP()
+    for _, player in pairs(game.Players:GetPlayers()) do
+        addESP(player)
+    end
+end
+
 local function toggleESP(state)
     espEnabled = state
     if espEnabled then
-        for _, player in pairs(game.Players:GetPlayers()) do
-            addESP(player)
-        end
+        refreshESP()
         game.Players.PlayerAdded:Connect(addESP)
         game.Players.PlayerRemoving:Connect(removeESP)
+        game:GetService("RunService").Stepped:Connect(refreshESP)
     else
         for _, player in pairs(game.Players:GetPlayers()) do
             removeESP(player)
@@ -160,6 +173,37 @@ local function toggleESP(state)
 end
 
 Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(toggleESP)
+
+-- Jogador: Corrida ao segurar Shift
+local SpeedEnabled = false
+local NormalWalkSpeed = 16 -- Velocidade normal de caminhada
+local SprintWalkSpeed = 30 -- Velocidade de corrida
+
+Tabs.Jogador:AddToggle("SprintShift", { Title = "Corrida ao segurar Shift" }):OnChanged(function(Value)
+    SpeedEnabled = Value
+end)
+
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and SpeedEnabled and input.KeyCode == Enum.KeyCode.LeftShift then
+        local player = game.Players.LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = SprintWalkSpeed
+        end
+    end
+end)
+
+game:GetService("UserInputService").InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.LeftShift then
+        local player = game.Players.LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = NormalWalkSpeed
+        end
+    end
+end)
 
 -- Configurações
 Tabs.Configuracoes:AddParagraph({
