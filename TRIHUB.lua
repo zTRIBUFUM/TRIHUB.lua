@@ -75,14 +75,14 @@ local function getClosestPlayer()
     return closestPlayer
 end
 
+local aimbotConnection
+
 game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and AimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
-        game:GetService("RunService").RenderStepped:Connect(function()
-            if AimbotEnabled then
-                local closestPlayer = getClosestPlayer()
-                if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
-                    workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, closestPlayer.Character.Head.Position)
-                end
+        aimbotConnection = game:GetService("RunService").RenderStepped:Connect(function()
+            local closestPlayer = getClosestPlayer()
+            if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
+                workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, closestPlayer.Character.Head.Position)
             end
         end)
     end
@@ -90,7 +90,9 @@ end)
 
 game:GetService("UserInputService").InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        AimbotEnabled = false
+        if aimbotConnection then
+            aimbotConnection:Disconnect()
+        end
     end
 end)
 
