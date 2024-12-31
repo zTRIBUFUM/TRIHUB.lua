@@ -131,47 +131,61 @@ end)
 Tabs.Teleporte:AddButton({
     Title = "Teleport Island",
     Callback = function()
-        Window:Dialog(
-        {
-            Title = "Teleport Island - Fish",
-            Content = "Selecione um local:",
+        Window:Dialog({
+            Title = "Teleport Island - Selecione um contexto",
+            Content = "Escolha um grupo de locais:",
             Buttons = {
                 {
-                    Title = "Cachoeira",
+                    Title = "Fish",
                     Callback = function()
-                        local player = game.Players.LocalPlayer
-                        local character = player.Character or player.CharacterAdded:Wait()
-                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
+                        Window:Dialog({
+                            Title = "Teleport Island - Fish",
+                            Content = "Selecione um local:",
+                            Buttons = {
+                                {
+                                    Title = "Cachoeira",
+                                    Callback = function()
+                                        local player = game.Players.LocalPlayer
+                                        local character = player.Character or player.CharacterAdded:Wait()
+                                        local rootPart = character:WaitForChild("HumanoidRootPart")
+                                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
+                                    end
+                                },
+                                {
+                                    Title = "Madeira de Musgo",
+                                    Callback = function()
+                                        local player = game.Players.LocalPlayer
+                                        local character = player.Character or player.CharacterAdded:Wait()
+                                        local rootPart = character:WaitForChild("HumanoidRootPart")
+                                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
+                                    end
+                                }
+                            }
+                        })
                     end
                 },
                 {
-                    Title = "Madeira de Musgo",
+                    Title = "BloxFruit",
                     Callback = function()
-                        local player = game.Players.LocalPlayer
-                        local character = player.Character or player.CharacterAdded:Wait()
-                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
+                        Window:Dialog({
+                            Title = "Teleport Island - BloxFruit",
+                            Content = "Selecione um local:",
+                            Buttons = {
+                                {
+                                    Title = "Mansao",
+                                    Callback = function()
+                                        local player = game.Players.LocalPlayer
+                                        local character = player.Character or player.CharacterAdded:Wait()
+                                        local rootPart = character:WaitForChild("HumanoidRootPart")
+                                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
+                                    end
+                                }
+                            }
+                        })
                     end
                 }
             }
-        },
-        {
-            Title = "Teleport Island - BloxFRuit",
-            Content = "Selecione um local:",
-            Buttons = {
-                {
-                    Title = "Mansao",
-                    Callback = function()
-                        local player = game.Players.LocalPlayer
-                        local character = player.Character or player.CharacterAdded:Wait()
-                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
-                    end
-                }
-            }
-        }
-        )
+        })
     end
 })
 
