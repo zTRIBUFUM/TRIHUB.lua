@@ -1,3 +1,4 @@
+-- Configurações iniciais do script
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
@@ -63,90 +64,71 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
     end
 end)
 
--- Jogador: Walk on Water
--- Misc: Walk On Water
-local WalkZone = "Ocean"
-local WalkOnWater = Tabs.Misc:AddToggle("WalkOnWater", {Title = "Walk On Water", Default = false })
-WalkOnWater:OnChanged(function()
-    for i, v in pairs(workspace.zones.fishing:GetChildren()) do
-        if v.Name == WalkZone then
-            v.CanCollide = WalkOnWater.Value
-            if v.Name == "Ocean" then
-                for _, subZone in pairs(workspace.zones.fishing:GetChildren()) do
-                    if subZone.Name == "Deep Ocean" then
-                        subZone.CanCollide = WalkOnWater.Value
-                    end
-                end
+-- Jogador: Aimbot
+local AimbotEnabled = false
+Tabs.Jogador:AddToggle("Aimbot", { Title = "Aimbot" }):OnChanged(function(Value)
+    AimbotEnabled = Value
+end)
+
+local function getClosestPlayer()
+    local localPlayer = game.Players.LocalPlayer
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local distance = (localPlayer.Character.Head.Position - player.Character.Head.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestPlayer = player
             end
+        end
+    end
+
+    return closestPlayer
+end
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if AimbotEnabled then
+        local closestPlayer = getClosestPlayer()
+        if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
+            workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, closestPlayer.Character.Head.Position)
         end
     end
 end)
 
-local WalkOnWaterZone = Tabs.Misc:AddDropdown("WalkOnWaterZone", {
-    Title = "Walk On Water Zone",
-    Values = {"Ocean", "Desolate Deep", "The Depths"},
-    Multi = false,
-    Default = "Ocean",
-})
-WalkOnWaterZone:OnChanged(function(Value)
-    WalkZone = Value
-end)
-
-local WalkSpeedSliderUI = Tabs.Misc:AddSlider("WalkSpeedSliderUI", {
-    Title = "Walk Speed",
-    Min = 16,
-    Max = 200,
-    Default = 16,
-    Rounding = 1,
-})
-WalkSpeedSliderUI:OnChanged(function(value)
-    game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
-end)
-
-
--- Teleporte: Teleport Island
-Tabs.Teleporte:AddButton({
-    Title = "Teleport Island",
-    Callback = function()
-        Window:Dialog({
-            Title = "Teleport Island",
-            Content = "Selecione um local:",
-            Buttons = {
-                {
-                    Title = "Cachoeira",
-                    Callback = function()
-                        local player = game.Players.LocalPlayer
-                        local character = player.Character or player.CharacterAdded:Wait()
-                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
-                    end
-                }
-            }
-        })
-    end
-})
-
--- ESP: Funções agrupadas
+-- ESP: Boxing com borda colorida
 local espEnabled = false
+local espColor = Color3.fromRGB(0, 255, 0) -- Verde por padrão
+
+Tabs.ESP:AddColorPicker("ESPColor", {
+    Title = "Cor da Borda",
+    Default = espColor
+}):OnChanged(function(Color)
+    espColor = Color
+end)
 
 local function addESP(player)
     if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-        local billboard = Instance.new("BillboardGui", player.Character.Head)
-        billboard.Name = "ESP"
-        billboard.Size = UDim2.new(0, 200, 0, 50)
-        billboard.AlwaysOnTop = true
+        local head = player.Character.Head
 
-        local textLabel = Instance.new("TextLabel", billboard)
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
-        textLabel.BackgroundTransparency = 1
-        textLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-        textLabel.Text = player.Name
+        if not head:FindFirstChild("ESPBox") then
+            local box = Instance.new("BoxHandleAdornment")
+            box.Name = "ESPBox"
+            box.Size = player.Character:GetExtentsSize()
+            box.Adornee = player.Character
+            box.AlwaysOnTop = true
+            box.ZIndex = 10
+            box.Color3 = espColor
+            box.Transparency = 0.5
+            box.Parent = head
+        end
     end
 end
 
 local function removeESP(player)
     if player.Character and player.Character:FindFirstChild("Head") then
-        local esp = player.Character.Head:FindFirstChild("ESP")
+        local esp = player.Character.Head:FindFirstChild("ESPBox")
         if esp then
             esp:Destroy()
         end
