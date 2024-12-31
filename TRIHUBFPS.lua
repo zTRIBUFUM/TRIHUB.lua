@@ -57,13 +57,13 @@ Tabs.Jogador:AddToggle("Aimbot", { Title = "Aimbot" }):OnChanged(function(Value)
     AimbotEnabled = Value
 end)
 
-local function getClosestPlayer()
+local function getClosestEnemyPlayer()
     local localPlayer = game.Players.LocalPlayer
     local closestPlayer = nil
     local shortestDistance = math.huge
 
     for _, player in pairs(game.Players:GetPlayers()) do
-        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("Head") then
+        if player ~= localPlayer and player.Team ~= localPlayer.Team and player.Character and player.Character:FindFirstChild("Head") then
             local distance = (localPlayer.Character.Head.Position - player.Character.Head.Position).Magnitude
             if distance < shortestDistance then
                 shortestDistance = distance
@@ -80,7 +80,7 @@ local aimbotConnection
 game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and AimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
         aimbotConnection = game:GetService("RunService").RenderStepped:Connect(function()
-            local closestPlayer = getClosestPlayer()
+            local closestPlayer = getClosestEnemyPlayer()
             if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
                 workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, closestPlayer.Character.Head.Position)
             end
