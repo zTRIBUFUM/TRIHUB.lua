@@ -132,56 +132,16 @@ Tabs.Teleporte:AddButton({
     Title = "Teleport Island",
     Callback = function()
         Window:Dialog({
-            Title = "Teleport Island - Selecione um contexto",
-            Content = "Escolha um grupo de locais:",
+            Title = "Teleport Island",
+            Content = "Selecione um local:",
             Buttons = {
                 {
-                    Title = "Fish",
+                    Title = "Cachoeira",
                     Callback = function()
-                        Window:Dialog({
-                            Title = "Teleport Island - Fish",
-                            Content = "Selecione um local:",
-                            Buttons = {
-                                {
-                                    Title = "Cachoeira",
-                                    Callback = function()
-                                        local player = game.Players.LocalPlayer
-                                        local character = player.Character or player.CharacterAdded:Wait()
-                                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
-                                    end
-                                },
-                                {
-                                    Title = "Madeira de Musgo",
-                                    Callback = function()
-                                        local player = game.Players.LocalPlayer
-                                        local character = player.Character or player.CharacterAdded:Wait()
-                                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
-                                    end
-                                }
-                            }
-                        })
-                    end
-                },
-                {
-                    Title = "BloxFruit",
-                    Callback = function()
-                        Window:Dialog({
-                            Title = "Teleport Island - BloxFruit",
-                            Content = "Selecione um local:",
-                            Buttons = {
-                                {
-                                    Title = "Mansao",
-                                    Callback = function()
-                                        local player = game.Players.LocalPlayer
-                                        local character = player.Character or player.CharacterAdded:Wait()
-                                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
-                                    end
-                                }
-                            }
-                        })
+                        local player = game.Players.LocalPlayer
+                        local character = player.Character or player.CharacterAdded:Wait()
+                        local rootPart = character:WaitForChild("HumanoidRootPart")
+                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
                     end
                 }
             }
