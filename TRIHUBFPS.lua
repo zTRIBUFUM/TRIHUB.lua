@@ -96,6 +96,37 @@ game:GetService("UserInputService").InputEnded:Connect(function(input)
     end
 end)
 
+-- Jogador: Corrida ao segurar Shift
+local SpeedEnabled = false
+local NormalWalkSpeed = 16 -- Velocidade normal de caminhada
+local SprintWalkSpeed = 30 -- Velocidade de corrida
+
+Tabs.Jogador:AddToggle("SprintShift", { Title = "Corrida ao segurar Shift" }):OnChanged(function(Value)
+    SpeedEnabled = Value
+end)
+
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and SpeedEnabled and input.KeyCode == Enum.KeyCode.LeftShift then
+        local player = game.Players.LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = SprintWalkSpeed
+        end
+    end
+end)
+
+game:GetService("UserInputService").InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.LeftShift then
+        local player = game.Players.LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = NormalWalkSpeed
+        end
+    end
+end)
+
 -- Teleporte: Teleport Island
 Tabs.Teleporte:AddButton({
     Title = "Teleport Island",
