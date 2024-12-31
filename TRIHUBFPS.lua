@@ -2,7 +2,6 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Criação da janela principal
 local Window = Fluent:CreateWindow({
     Title = "TRIHUB",
     TabWidth = 160,
@@ -11,7 +10,6 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
--- Abas
 local Tabs = {
     Jogador = Window:AddTab({ Title = "Jogador" }),
     Teleporte = Window:AddTab({ Title = "Teleporte" }),
@@ -19,7 +17,6 @@ local Tabs = {
     Configuracoes = Window:AddTab({ Title = "Configurações" })
 }
 
--- Jogador: Pulo infinito
 local InfiniteJump = false
 Tabs.Jogador:AddToggle("InfiniteJump", { Title = "Pulo Infinito" }):OnChanged(function(Value)
     InfiniteJump = Value
@@ -35,7 +32,6 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
     end
 end)
 
--- Jogador: Walk on Water
 local WalkOnWater = false
 Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(function(Value)
     WalkOnWater = Value
@@ -51,7 +47,6 @@ Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(fun
     end
 end)
 
--- Jogador: Aimbot
 local AimbotEnabled = false
 Tabs.Jogador:AddToggle("Aimbot", { Title = "Aimbot" }):OnChanged(function(Value)
     AimbotEnabled = Value
@@ -82,7 +77,6 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gameProce
         aimbotConnection = game:GetService("RunService").RenderStepped:Connect(function()
             local closestPlayer = getClosestEnemyPlayer()
             if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
-                -- Ajuste para suavizar a transição do Aimbot
                 local currentPosition = workspace.CurrentCamera.CFrame.Position
                 local targetPosition = closestPlayer.Character.Head.Position
                 local newCFrame = CFrame.new(currentPosition, targetPosition)
@@ -100,100 +94,25 @@ game:GetService("UserInputService").InputEnded:Connect(function(input)
     end
 end)
 
--- Jogador: WalkSpeed Personalizável
-local SpeedEnabled = false
-local CustomWalkSpeed = 16 -- Valor inicial da velocidade
+-- Jogador: Configurável WalkSpeed
+local WalkSpeed = 16 -- Velocidade padrão de caminhada
 
-Tabs.Jogador:AddToggle("WalkSpeedEnabled", { Title = "Ativar WalkSpeed" }):OnChanged(function(Value)
-    SpeedEnabled = Value
-    local player = game.Players.LocalPlayer
-    local character = player.Character or player.CharacterAdded:Wait()
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        humanoid.WalkSpeed = SpeedEnabled and CustomWalkSpeed or 16 -- Reseta para o padrão quando desativado
-    end
-end)
-
-Tabs.Jogador:AddSlider("WalkSpeed", {
-    Title = "Definir Velocidade",
+Tabs.Jogador:AddSlider("WalkSpeedSlider", {
+    Title = "Velocidade de Caminhada",
     Min = 0,
     Max = 100,
-    Default = 16, -- Valor inicial
-    Increment = 1,
-}):OnChanged(function(Value)
-    CustomWalkSpeed = Value
-    if SpeedEnabled then
+    Default = 16,
+    OnChanged = function(Value)
+        WalkSpeed = Value
         local player = game.Players.LocalPlayer
         local character = player.Character or player.CharacterAdded:Wait()
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            humanoid.WalkSpeed = CustomWalkSpeed
+            humanoid.WalkSpeed = WalkSpeed
         end
     end
-end)
-
--- Teleporte: Teleport Island - Fish e Teleport Island - BloxFruit
-Tabs.Teleporte:AddButton({
-    Title = "Teleport Island - Fish",
-    Callback = function()
-        Window:Dialog({
-            Title = "Teleport Island - Fish",
-            Content = "Selecione um local:",
-            Buttons = {
-                {
-                    Title = "Cachoeira",
-                    Callback = function()
-                        local player = game.Players.LocalPlayer
-                        local character = player.Character or player.CharacterAdded:Wait()
-                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
-                    end
-                },
-                {
-                    Title = "Madeira de musgo",
-                    Callback = function()
-                        local player = game.Players.LocalPlayer
-                        local character = player.Character or player.CharacterAdded:Wait()
-                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                        rootPart.CFrame = CFrame.new(15, 25, 14)
-                    end
-                }
-            }
-        })
-    end
 })
 
-Tabs.Teleporte:AddButton({
-    Title = "Teleport Island - BloxFruit",
-    Callback = function()
-        Window:Dialog({
-            Title = "Teleport Island - BloxFruit",
-            Content = "Selecione um local:",
-            Buttons = {
-                {
-                    Title = "Mansão",
-                    Callback = function()
-                        local player = game.Players.LocalPlayer
-                        local character = player.Character or player.CharacterAdded:Wait()
-                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                        rootPart.CFrame = CFrame.new(14, 28, 39)
-                    end
-                },
-                {
-                    Title = "Castelo do Mar",
-                    Callback = function()
-                        local player = game.Players.LocalPlayer
-                        local character = player.Character or player.CharacterAdded:Wait()
-                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                        rootPart.CFrame = CFrame.new(88, 45, 55)
-                    end
-                }
-            }
-        })
-    end
-})
-
--- ESP: ESP Player com cores de equipe
 local espEnabled = false
 
 local function getTeamColor(player)
@@ -248,17 +167,14 @@ end
 
 Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(toggleESP)
 
--- Configurações
 Tabs.Configuracoes:AddParagraph({
     Title = "Configurações",
     Content = "Configure suas preferências aqui."
 })
 
--- Inicializar Managers
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 
--- Finalizar
 Window:SelectTab(1)
 Fluent:Notify({
     Title = "TRIHUB",
