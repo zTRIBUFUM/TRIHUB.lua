@@ -36,11 +36,29 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
     end
 end)
 
+-- Jogador: Velocidade de Caminhada
+local WalkSpeed = 16
+Tabs.Jogador:AddSlider("WalkSpeedSlider", {
+    Title = "Velocidade de Caminhada",
+    Min = 0,
+    Max = 100,
+    Default = 16
+}):OnChanged(function(Value)
+    WalkSpeed = Value
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = WalkSpeed
+    end
+end)
+
 -- Jogador: Walk on Water
 local WalkOnWater = false
 Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(function(Value)
     WalkOnWater = Value
-    local character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
     local rootPart = character:WaitForChild("HumanoidRootPart")
 
     if WalkOnWater then
@@ -78,7 +96,7 @@ Tabs.Teleporte:AddButton({
 local espEnabled = false
 
 local function getTeamColor(player)
-    if player.Team == game.Players.LocalPlayer.Team então
+    if player.Team == game.Players.LocalPlayer.Team then
         return Color3.fromRGB(0, 0, 255) -- Azul
     else
         return Color3.fromRGB(255, 0, 0) -- Vermelho
@@ -121,7 +139,7 @@ end
 
 local function toggleESP(state)
     espEnabled = state
-    if espEnabled então
+    if espEnabled then
         refreshESP()
         game.Players.PlayerAdded:Connect(addESP)
         game.Players.PlayerRemoving:Connect(removeESP)
@@ -149,7 +167,7 @@ local function getClosestEnemyPlayer()
     for _, player in pairs(game.Players:GetPlayers()) do
         if player ~= localPlayer and player.Team ~= localPlayer.Team and player.Character and player.Character:FindFirstChild("Head") then
             local distance = (localPlayer.Character.Head.Position - player.Character.Head.Position).Magnitude
-            if distance < shortestDistance então
+            if distance < shortestDistance then
                 shortestDistance = distance
                 closestPlayer = player
             end
@@ -162,7 +180,7 @@ end
 local aimbotConnection
 
 game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and AimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 então
+    if not gameProcessed and AimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
         aimbotConnection = game:GetService("RunService").RenderStepped:Connect(function()
             local closestPlayer = getClosestEnemyPlayer()
             if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
@@ -176,7 +194,7 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gameProce
 end)
 
 game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 então
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
         if aimbotConnection then
             aimbotConnection:Disconnect()
         end
@@ -187,17 +205,19 @@ end)
 local brightnessEnabled = false
 Tabs.Configuracoes:AddToggle("BrightnessControl", { Title = "Controle de Brilho" }):OnChanged(function(Value)
     brightnessEnabled = Value
-    if not brightnessEnabled então
+    if not brightnessEnabled then
         game:GetService("Lighting").Brightness = 1 -- Restaura o brilho padrão
     end
 end)
 
-Tabs.Configuracoes:AddSlider("BrightnessSlider", {
+local BrightnessSlider
+BrightnessSlider = Tabs.Configuracoes:AddSlider("BrightnessSlider", {
     Title = "Ajuste de Brilho",
     Min = 0,
     Max = 100,
     Default = 100
-}):OnChanged(function(Value)
+})
+BrightnessSlider.OnChanged:Connect(function(Value)
     if brightnessEnabled then
         game:GetService("Lighting").Brightness = Value / 100
     end
