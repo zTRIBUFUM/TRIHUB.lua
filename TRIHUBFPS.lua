@@ -2,6 +2,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
+-- Criação da janela principal
 local Window = Fluent:CreateWindow({
     Title = "TRIHUB",
     TabWidth = 160,
@@ -10,6 +11,7 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
+-- Abas
 local Tabs = {
     Jogador = Window:AddTab({ Title = "Jogador" }),
     Teleporte = Window:AddTab({ Title = "Teleporte" }),
@@ -18,7 +20,7 @@ local Tabs = {
     Configuracoes = Window:AddTab({ Title = "Configurações" })
 }
 
--- Pulo infinito
+-- Jogador: Pulo infinito
 local InfiniteJump = false
 Tabs.Jogador:AddToggle("InfiniteJump", { Title = "Pulo Infinito" }):OnChanged(function(Value)
     InfiniteJump = Value
@@ -34,24 +36,45 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
     end
 end)
 
--- Velocidade de caminhada configurável
-local WalkSpeed = 16
-Tabs.Jogador:AddSlider("WalkSpeedSlider", {
-    Title = "Velocidade de Caminhada",
-    Min = 0,
-    Max = 100,
-    Default = 16
-}):OnChanged(function(Value)
-    WalkSpeed = Value
-    local player = game.Players.LocalPlayer
-    local character = player.Character or player.CharacterAdded:Wait()
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        humanoid.WalkSpeed = WalkSpeed
+-- Jogador: Walk on Water
+local WalkOnWater = false
+Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(function(Value)
+    WalkOnWater = Value
+    local character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
+    local rootPart = character:WaitForChild("HumanoidRootPart")
+
+    if WalkOnWater then
+        rootPart.Touched:Connect(function(hit)
+            if hit.Name == "Ocean" then
+                rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
+            end
+        end)
     end
 end)
 
--- ESP Player
+-- Teleporte: Teleport Island
+Tabs.Teleporte:AddButton({
+    Title = "Teleport Island",
+    Callback = function()
+        Window:Dialog({
+            Title = "Teleport Island",
+            Content = "Selecione um local:",
+            Buttons = {
+                {
+                    Title = "Cachoeira",
+                    Callback = function()
+                        local player = game.Players.LocalPlayer
+                        local character = player.Character or player.CharacterAdded:Wait()
+                        local rootPart = character:WaitForChild("HumanoidRootPart")
+                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
+                    end
+                }
+            }
+        })
+    end
+})
+
+-- ESP: ESP Player com cores de equipe
 local espEnabled = false
 
 local function getTeamColor(player)
@@ -89,14 +112,20 @@ local function removeESP(player)
     end
 end
 
+local function refreshESP()
+    for _, player in pairs(game.Players:GetPlayers()) do
+        removeESP(player)
+        addESP(player)
+    end
+end
+
 local function toggleESP(state)
     espEnabled = state
     if espEnabled then
-        for _, player in pairs(game.Players:GetPlayers()) do
-            addESP(player)
-        end
+        refreshESP()
         game.Players.PlayerAdded:Connect(addESP)
         game.Players.PlayerRemoving:Connect(removeESP)
+        game.Players.LocalPlayer.CharacterAdded:Connect(refreshESP)
     else
         for _, player in pairs(game.Players:GetPlayers()) do
             removeESP(player)
@@ -154,14 +183,31 @@ game:GetService("UserInputService").InputEnded:Connect(function(input)
     end
 end)
 
-Tabs.Configuracoes:AddParagraph({
-    Title = "Configurações",
-    Content = "Configure suas preferências aqui."
-})
+-- Configurações: Controle de Brilho
+local brightnessEnabled = false
+Tabs.Configuracoes:AddToggle("BrightnessControl", { Title = "Controle de Brilho" }):OnChanged(function(Value)
+    brightnessEnabled = Value
+    if not brightnessEnabled then
+        game:GetService("Lighting").Brightness = 1 -- Restaura o brilho padrão
+    end
+end)
 
+Tabs.Configuracoes:AddSlider("BrightnessSlider", {
+    Title = "Ajuste de Brilho",
+    Min = 0,
+    Max = 100,
+    Default = 100
+}):OnChanged(function(Value)
+    if brightnessEnabled then
+        game:GetService("Lighting").Brightness = Value / 100
+    end
+end)
+
+-- Inicializar Managers
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 
+-- Finalizar
 Window:SelectTab(1)
 Fluent:Notify({
     Title = "TRIHUB",
