@@ -78,7 +78,7 @@ Tabs.Teleporte:AddButton({
 local espEnabled = false
 
 local function getTeamColor(player)
-    if player.Team == game.Players.LocalPlayer.Team then
+    if player.Team == game.Players.LocalPlayer.Team então
         return Color3.fromRGB(0, 0, 255) -- Azul
     else
         return Color3.fromRGB(255, 0, 0) -- Vermelho
@@ -121,7 +121,7 @@ end
 
 local function toggleESP(state)
     espEnabled = state
-    if espEnabled then
+    if espEnabled então
         refreshESP()
         game.Players.PlayerAdded:Connect(addESP)
         game.Players.PlayerRemoving:Connect(removeESP)
@@ -149,7 +149,7 @@ local function getClosestEnemyPlayer()
     for _, player in pairs(game.Players:GetPlayers()) do
         if player ~= localPlayer and player.Team ~= localPlayer.Team and player.Character and player.Character:FindFirstChild("Head") then
             local distance = (localPlayer.Character.Head.Position - player.Character.Head.Position).Magnitude
-            if distance < shortestDistance then
+            if distance < shortestDistance então
                 shortestDistance = distance
                 closestPlayer = player
             end
@@ -162,7 +162,7 @@ end
 local aimbotConnection
 
 game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and AimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
+    if not gameProcessed and AimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 então
         aimbotConnection = game:GetService("RunService").RenderStepped:Connect(function()
             local closestPlayer = getClosestEnemyPlayer()
             if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
@@ -176,7 +176,7 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gameProce
 end)
 
 game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+    if input.UserInputType == Enum.UserInputType.MouseButton2 então
         if aimbotConnection then
             aimbotConnection:Disconnect()
         end
@@ -187,7 +187,7 @@ end)
 local brightnessEnabled = false
 Tabs.Configuracoes:AddToggle("BrightnessControl", { Title = "Controle de Brilho" }):OnChanged(function(Value)
     brightnessEnabled = Value
-    if not brightnessEnabled then
+    if not brightnessEnabled então
         game:GetService("Lighting").Brightness = 1 -- Restaura o brilho padrão
     end
 end)
