@@ -14,9 +14,11 @@ local Tabs = {
     Jogador = Window:AddTab({ Title = "Jogador" }),
     Teleporte = Window:AddTab({ Title = "Teleporte" }),
     ESP = Window:AddTab({ Title = "ESP" }),
+    Aimbot = Window:AddTab({ Title = "Aimbot" }),
     Configuracoes = Window:AddTab({ Title = "Configurações" })
 }
 
+-- Pulo infinito
 local InfiniteJump = false
 Tabs.Jogador:AddToggle("InfiniteJump", { Title = "Pulo Infinito" }):OnChanged(function(Value)
     InfiniteJump = Value
@@ -32,71 +34,8 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
     end
 end)
 
-local WalkOnWater = false
-Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(function(Value)
-    WalkOnWater = Value
-    local character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
-    local rootPart = character:WaitForChild("HumanoidRootPart")
-
-    if WalkOnWater then
-        rootPart.Touched:Connect(function(hit)
-            if hit.Name == "Ocean" then
-                rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
-            end
-        end)
-    end
-end)
-
-local AimbotEnabled = false
-Tabs.Jogador:AddToggle("Aimbot", { Title = "Aimbot" }):OnChanged(function(Value)
-    AimbotEnabled = Value
-end)
-
-local function getClosestEnemyPlayer()
-    local localPlayer = game.Players.LocalPlayer
-    local closestPlayer = nil
-    local shortestDistance = math.huge
-
-    for _, player in pairs(game.Players:GetPlayers()) do
-        if player ~= localPlayer and player.Team ~= localPlayer.Team and player.Character and player.Character:FindFirstChild("Head") then
-            local distance = (localPlayer.Character.Head.Position - player.Character.Head.Position).Magnitude
-            if distance < shortestDistance then
-                shortestDistance = distance
-                closestPlayer = player
-            end
-        end
-    end
-
-    return closestPlayer
-end
-
-local aimbotConnection
-
-game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and AimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
-        aimbotConnection = game:GetService("RunService").RenderStepped:Connect(function()
-            local closestPlayer = getClosestEnemyPlayer()
-            if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
-                local currentPosition = workspace.CurrentCamera.CFrame.Position
-                local targetPosition = closestPlayer.Character.Head.Position
-                local newCFrame = CFrame.new(currentPosition, targetPosition)
-                workspace.CurrentCamera.CFrame = newCFrame:Lerp(newCFrame, 0.5)
-            end
-        end)
-    end
-end)
-
-game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        if aimbotConnection then
-            aimbotConnection:Disconnect()
-        end
-    end
-end)
-
--- Jogador: Configurável WalkSpeed
-local WalkSpeed = 16 -- Velocidade padrão de caminhada
-
+-- Velocidade de caminhada configurável
+local WalkSpeed = 16
 Tabs.Jogador:AddSlider("WalkSpeedSlider", {
     Title = "Velocidade de Caminhada",
     Min = 0,
@@ -113,6 +52,7 @@ Tabs.Jogador:AddSlider("WalkSpeedSlider", {
     end
 })
 
+-- ESP Player
 local espEnabled = false
 
 local function getTeamColor(player)
@@ -166,6 +106,54 @@ local function toggleESP(state)
 end
 
 Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(toggleESP)
+
+-- Aimbot
+local AimbotEnabled = false
+Tabs.Aimbot:AddToggle("Aimbot", { Title = "Aimbot" }):OnChanged(function(Value)
+    AimbotEnabled = Value
+end)
+
+local function getClosestEnemyPlayer()
+    local localPlayer = game.Players.LocalPlayer
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= localPlayer and player.Team ~= localPlayer.Team and player.Character and player.Character:FindFirstChild("Head") then
+            local distance = (localPlayer.Character.Head.Position - player.Character.Head.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestPlayer = player
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+local aimbotConnection
+
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and AimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aimbotConnection = game:GetService("RunService").RenderStepped:Connect(function()
+            local closestPlayer = getClosestEnemyPlayer()
+            if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
+                local currentPosition = workspace.CurrentCamera.CFrame.Position
+                local targetPosition = closestPlayer.Character.Head.Position
+                local newCFrame = CFrame.new(currentPosition, targetPosition)
+                workspace.CurrentCamera.CFrame = newCFrame:Lerp(newCFrame, 0.5)
+            end
+        end)
+    end
+end)
+
+game:GetService("UserInputService").InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        if aimbotConnection then
+            aimbotConnection:Disconnect()
+        end
+    end
+end)
 
 Tabs.Configuracoes:AddParagraph({
     Title = "Configurações",
