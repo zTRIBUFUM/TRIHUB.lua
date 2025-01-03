@@ -40,17 +40,16 @@ Tabs.Jogador:AddSlider("WalkSpeedSlider", {
     Title = "Velocidade de Caminhada",
     Min = 0,
     Max = 100,
-    Default = 16,
-    OnChanged = function(Value)
-        WalkSpeed = Value
-        local player = game.Players.LocalPlayer
-        local character = player.Character or player.CharacterAdded:Wait()
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = WalkSpeed
-        end
+    Default = 16
+}):OnChanged(function(Value)
+    WalkSpeed = Value
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = WalkSpeed
     end
-})
+end)
 
 -- ESP Player
 local espEnabled = false
