@@ -23,6 +23,7 @@ local Tabs = {
 -- Variáveis
 local WalkSpeed = 16
 local UserInputService = game:GetService("UserInputService")
+local espEnabled = false
 
 -- Funções de utilidade
 local function ensureCharacterAndHumanoid()
@@ -76,7 +77,7 @@ end)
 local WalkOnWater = false
 Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(function(Value)
     WalkOnWater = Value
-    local character = ensureCharacterAndHumanoid()
+    local character, humanoid = ensureCharacterAndHumanoid()
     local rootPart = character:WaitForChild("HumanoidRootPart")
 
     if WalkOnWater then
@@ -92,7 +93,7 @@ end)
 Tabs.Teleporte:AddButton({
     Title = "Teleport Island - Cachoeira",
     Callback = function()
-        local character = ensureCharacterAndHumanoid()
+        local character, humanoid = ensureCharacterAndHumanoid()
         local rootPart = character:WaitForChild("HumanoidRootPart")
         rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5) -- Coordenadas da Cachoeira
     end
