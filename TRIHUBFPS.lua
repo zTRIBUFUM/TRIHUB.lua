@@ -16,9 +16,81 @@ local Tabs = {
     Jogador = Window:AddTab({ Title = "Jogador" }),
     Teleporte = Window:AddTab({ Title = "Teleporte" }),
     ESP = Window:AddTab({ Title = "ESP" }),
-    Admin = Window:AddTab({ Title = "Admin" }),
     Configuracoes = Window:AddTab({ Title = "Configurações" })
 }
+
+-- Jogador: Pulo infinito
+local InfiniteJump = false
+Tabs.Jogador:AddToggle("InfiniteJump", { Title = "Pulo Infinito" }):OnChanged(function(Value)
+    InfiniteJump = Value
+end)
+
+game:GetService("UserInputService").JumpRequest:Connect(function()
+    if InfiniteJump then
+        local character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+-- Jogador: Walk on Water
+local WalkOnWater = false
+Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(function(Value)
+    WalkOnWater = Value
+    local character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
+    local rootPart = character:WaitForChild("HumanoidRootPart")
+
+    if WalkOnWater then
+        rootPart.Touched:Connect(function(hit)
+            if hit.Name == "Ocean" then
+                rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
+            end
+        end)
+    end
+end)
+
+-- Jogador: Aimbot
+local AimbotEnabled = false
+local AimbotOnHead = false
+Tabs.Jogador:AddToggle("Aimbot", { Title = "Aimbot" }):OnChanged(function(Value)
+    AimbotEnabled = Value
+end)
+
+Tabs.Jogador:AddToggle("AimbotOnHead", { Title = "Aimbot na Cabeça" }):OnChanged(function(Value)
+    AimbotOnHead = Value
+end)
+
+local function getClosestPlayer()
+    local localPlayer = game.Players.LocalPlayer
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local distance = (localPlayer.Character.Head.Position - player.Character.Head.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestPlayer = player
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if AimbotEnabled then
+        local closestPlayer = getClosestPlayer()
+        if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
+            local aimPart = AimbotOnHead and closestPlayer.Character.Head or closestPlayer.Character.PrimaryPart
+            if aimPart then
+                workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, aimPart.Position)
+            end
+        end
+    end
+end)
 
 -- Jogador: Controle de Velocidade de Caminhada
 local WalkSpeed = 16
@@ -42,32 +114,16 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- Jogador: Pulo infinito
-local InfiniteJump = false
-Tabs.Jogador:AddToggle("InfiniteJump", { Title = "Pulo Infinito" }):OnChanged(function(Value)
-    InfiniteJump = Value
-end)
-
-game:GetService("UserInputService").JumpRequest:Connect(function()
-    if InfiniteJump then
-        local character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
-    end
-end)
-
--- Teleporte
+-- Teleporte: Teleport Island
 Tabs.Teleporte:AddButton({
-    Title = "Teleportar para Ilha",
+    Title = "Teleport Island",
     Callback = function()
         Window:Dialog({
-            Title = "Teleportar",
+            Title = "Teleport Island",
             Content = "Selecione um local:",
             Buttons = {
                 {
-                    Title = "Ilha da Cachoeira",
+                    Title = "Cachoeira",
                     Callback = function()
                         local player = game.Players.LocalPlayer
                         local character = player.Character or player.CharacterAdded:Wait()
@@ -80,8 +136,16 @@ Tabs.Teleporte:AddButton({
     end
 })
 
--- ESP
+-- ESP: ESP Player com cores de equipe
 local espEnabled = false
+
+local function getTeamColor(player)
+    if player.Team == game.Players.LocalPlayer.Team then
+        return Color3.fromRGB(0, 0, 255) -- Azul
+    else
+        return Color3.fromRGB(255, 0, 0) -- Vermelho
+    end
+end
 
 local function addESP(player)
     if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
@@ -94,7 +158,7 @@ local function addESP(player)
             box.Adornee = player.Character
             box.AlwaysOnTop = true
             box.ZIndex = 10
-            box.Color3 = Color3.new(1, 0, 0) -- Vermelho para inimigos
+            box.Color3 = getTeamColor(player)
             box.Transparency = 0.5
             box.Parent = head
         end
@@ -125,24 +189,7 @@ local function toggleESP(state)
     end
 end
 
-Tabs.ESP:AddToggle("ESPPlayer", { Title = "Ativar ESP" }):OnChanged(toggleESP)
-
--- Admin: Comando de Explosão
-Tabs.Admin:AddButton({
-    Title = "Explodir Jogador",
-    Callback = function()
-        local targetPlayer = game.Players:FindFirstChild("NomeDoJogador")
-        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local explosion = Instance.new("Explosion")
-            explosion.Position = targetPlayer.Character.HumanoidRootPart.Position
-            explosion.BlastRadius = 10
-            explosion.BlastPressure = 50000
-            explosion.Parent = workspace
-        else
-            Fluent:Notify({ Title = "Erro", Content = "Jogador não encontrado.", Duration = 3 })
-        end
-    end
-})
+Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(toggleESP)
 
 -- Configurações
 Tabs.Configuracoes:AddParagraph({
