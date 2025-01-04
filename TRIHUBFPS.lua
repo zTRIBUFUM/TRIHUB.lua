@@ -20,13 +20,44 @@ local Tabs = {
     Configuracoes = Window:AddTab({ Title = "Configurações" })
 }
 
--- Função para evitar erros com personagens/características ainda não carregadas
-local function getCharacter()
+-- Variáveis
+local WalkSpeed = 16
+local UserInputService = game:GetService("UserInputService")
+
+-- Funções de utilidade
+local function ensureCharacterAndHumanoid()
     local player = game.Players.LocalPlayer
-    return player.Character or player.CharacterAdded:Wait()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    return character, humanoid
 end
 
--- Jogador: Pulo infinito
+-- Controle de Velocidade de Caminhada com + e -
+Tabs.Jogador:AddLabel("Use + e - para alterar a velocidade de caminhada")
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+
+    if input.KeyCode == Enum.KeyCode.Equals or input.KeyCode == Enum.KeyCode.KeypadPlus then
+        -- Aumentar velocidade
+        WalkSpeed = math.min(WalkSpeed + 1, 100)
+        local _, humanoid = ensureCharacterAndHumanoid()
+        if humanoid then
+            humanoid.WalkSpeed = WalkSpeed
+        end
+        Fluent:Notify({ Title = "Velocidade de Caminhada", Content = "Aumentada para " .. WalkSpeed, Duration = 2 })
+    elseif input.KeyCode == Enum.KeyCode.Minus or input.KeyCode == Enum.KeyCode.KeypadMinus then
+        -- Diminuir velocidade
+        WalkSpeed = math.max(WalkSpeed - 1, 0)
+        local _, humanoid = ensureCharacterAndHumanoid()
+        if humanoid then
+            humanoid.WalkSpeed = WalkSpeed
+        end
+        Fluent:Notify({ Title = "Velocidade de Caminhada", Content = "Reduzida para " .. WalkSpeed, Duration = 2 })
+    end
+end)
+
+-- Pulo Infinito
 local InfiniteJump = false
 Tabs.Jogador:AddToggle("InfiniteJump", { Title = "Pulo Infinito" }):OnChanged(function(Value)
     InfiniteJump = Value
@@ -34,84 +65,87 @@ end)
 
 game:GetService("UserInputService").JumpRequest:Connect(function()
     if InfiniteJump then
-        local humanoid = getCharacter():FindFirstChildOfClass("Humanoid")
+        local _, humanoid = ensureCharacterAndHumanoid()
         if humanoid then
             humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
         end
     end
 end)
 
--- Jogador: Velocidade de Caminhada
-local WalkSpeed = 16
-Tabs.Jogador:AddSlider("WalkSpeedSlider", {
-    Title = "Velocidade de Caminhada",
-    Min = 0,
-    Max = 100,
-    Default = 16
-}):OnChanged(function(Value)
-    WalkSpeed = Value
-    local humanoid = getCharacter():FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        humanoid.WalkSpeed = WalkSpeed
+-- Walk on Water
+local WalkOnWater = false
+Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(function(Value)
+    WalkOnWater = Value
+    local character = ensureCharacterAndHumanoid()
+    local rootPart = character:WaitForChild("HumanoidRootPart")
+
+    if WalkOnWater then
+        rootPart.Touched:Connect(function(hit)
+            if hit.Name == "Ocean" then
+                rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
+            end
+        end)
     end
 end)
 
--- Teleporte: Teleport Island
+-- Teleporte
 Tabs.Teleporte:AddButton({
-    Title = "Teleport Island",
+    Title = "Teleport Island - Cachoeira",
     Callback = function()
-        local rootPart = getCharacter():WaitForChild("HumanoidRootPart")
-        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
+        local character = ensureCharacterAndHumanoid()
+        local rootPart = character:WaitForChild("HumanoidRootPart")
+        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5) -- Coordenadas da Cachoeira
     end
 })
 
--- ESP: ESP Player com cores de equipe
-local espEnabled = false
-
-local function getTeamColor(player)
-    if player.Team == game.Players.LocalPlayer.Team then
-        return Color3.fromRGB(0, 0, 255) -- Azul
-    else
-        return Color3.fromRGB(255, 0, 0) -- Vermelho
-    end
+-- ESP: ESP Player
+local function createESP(player)
+    local highlight = Instance.new("Highlight")
+    highlight.Adornee = player.Character
+    highlight.FillColor = Color3.new(1, 0, 0) -- Vermelho
+    highlight.OutlineColor = Color3.new(0, 0, 0) -- Preto
+    highlight.FillTransparency = 0.5 -- Transparência do preenchimento
+    highlight.OutlineTransparency = 0
+    highlight.Parent = player.Character
 end
 
-local function addESP(player)
-    if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-        local head = player.Character.Head
-        if not head:FindFirstChild("ESPBox") then
-            local box = Instance.new("BoxHandleAdornment")
-            box.Name = "ESPBox"
-            box.Size = player.Character:GetExtentsSize()
-            box.Adornee = player.Character
-            box.AlwaysOnTop = true
-            box.ZIndex = 10
-            box.Color3 = getTeamColor(player)
-            box.Transparency = 0.5
-            box.Parent = head
+local function removeESP(player)
+    if player.Character then
+        local highlight = player.Character:FindFirstChildOfClass("Highlight")
+        if highlight then
+            highlight:Destroy()
         end
     end
 end
 
-local function refreshESP()
+local function updateESP(state)
     for _, player in pairs(game.Players:GetPlayers()) do
-        addESP(player)
-    end
-end
-
-Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(function(Value)
-    espEnabled = Value
-    if espEnabled then
-        refreshESP()
-    else
-        for _, player in pairs(game.Players:GetPlayers()) do
-            local head = player.Character and player.Character:FindFirstChild("Head")
-            local esp = head and head:FindFirstChild("ESPBox")
-            if esp then
-                esp:Destroy()
+        if player ~= game.Players.LocalPlayer then
+            if state then
+                createESP(player)
+            else
+                removeESP(player)
             end
         end
     end
+end
+
+-- Monitorar novos jogadores entrando ou saindo
+game.Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        if espEnabled then
+            createESP(player)
+        end
+    end)
+end)
+
+game.Players.PlayerRemoving:Connect(function(player)
+    removeESP(player)
+end)
+
+Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(function(Value)
+    espEnabled = Value
+    updateESP(espEnabled)
 end)
 
 -- Configurações: Controle de Brilho
@@ -123,16 +157,12 @@ Tabs.Configuracoes:AddToggle("BrightnessControl", { Title = "Controle de Brilho"
     end
 end)
 
-Tabs.Configuracoes:AddSlider("BrightnessSlider", {
-    Title = "Ajuste de Brilho",
-    Min = 0,
-    Max = 100,
-    Default = 100
-}):OnChanged(function(Value)
-    if brightnessEnabled then
-        game:GetService("Lighting").Brightness = Value / 100
+Tabs.Configuracoes:AddButton({
+    Title = "Copiar Discord",
+    Callback = function()
+        setclipboard("https://discord.gg/seulink") -- Insira o link desejado
     end
-end)
+})
 
 -- Inicializar Managers
 SaveManager:SetLibrary(Fluent)
