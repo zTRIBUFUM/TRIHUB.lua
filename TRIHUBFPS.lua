@@ -20,6 +20,12 @@ local Tabs = {
     Configuracoes = Window:AddTab({ Title = "Configurações" })
 }
 
+-- Função para evitar erros com personagens/características ainda não carregadas
+local function getCharacter()
+    local player = game.Players.LocalPlayer
+    return player.Character or player.CharacterAdded:Wait()
+end
+
 -- Jogador: Pulo infinito
 local InfiniteJump = false
 Tabs.Jogador:AddToggle("InfiniteJump", { Title = "Pulo Infinito" }):OnChanged(function(Value)
@@ -28,8 +34,7 @@ end)
 
 game:GetService("UserInputService").JumpRequest:Connect(function()
     if InfiniteJump then
-        local character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local humanoid = getCharacter():FindFirstChildOfClass("Humanoid")
         if humanoid then
             humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
         end
@@ -45,28 +50,9 @@ Tabs.Jogador:AddSlider("WalkSpeedSlider", {
     Default = 16
 }):OnChanged(function(Value)
     WalkSpeed = Value
-    local player = game.Players.LocalPlayer
-    local character = player.Character or player.CharacterAdded:Wait()
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local humanoid = getCharacter():FindFirstChildOfClass("Humanoid")
     if humanoid then
         humanoid.WalkSpeed = WalkSpeed
-    end
-end)
-
--- Jogador: Walk on Water
-local WalkOnWater = false
-Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(function(Value)
-    WalkOnWater = Value
-    local player = game.Players.LocalPlayer
-    local character = player.Character or player.CharacterAdded:Wait()
-    local rootPart = character:WaitForChild("HumanoidRootPart")
-
-    if WalkOnWater then
-        rootPart.Touched:Connect(function(hit)
-            if hit.Name == "Ocean" then
-                rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
-            end
-        end)
     end
 end)
 
@@ -74,21 +60,8 @@ end)
 Tabs.Teleporte:AddButton({
     Title = "Teleport Island",
     Callback = function()
-        Window:Dialog({
-            Title = "Teleport Island",
-            Content = "Selecione um local:",
-            Buttons = {
-                {
-                    Title = "Cachoeira",
-                    Callback = function()
-                        local player = game.Players.LocalPlayer
-                        local character = player.Character or player.CharacterAdded:Wait()
-                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
-                    end
-                }
-            }
-        })
+        local rootPart = getCharacter():WaitForChild("HumanoidRootPart")
+        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
     end
 })
 
@@ -106,7 +79,6 @@ end
 local function addESP(player)
     if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
         local head = player.Character.Head
-
         if not head:FindFirstChild("ESPBox") then
             local box = Instance.new("BoxHandleAdornment")
             box.Name = "ESPBox"
@@ -121,82 +93,23 @@ local function addESP(player)
     end
 end
 
-local function removeESP(player)
-    if player.Character and player.Character:FindFirstChild("Head") then
-        local esp = player.Character.Head:FindFirstChild("ESPBox")
-        if esp then
-            esp:Destroy()
-        end
-    end
-end
-
 local function refreshESP()
     for _, player in pairs(game.Players:GetPlayers()) do
-        removeESP(player)
         addESP(player)
     end
 end
 
-local function toggleESP(state)
-    espEnabled = state
+Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(function(Value)
+    espEnabled = Value
     if espEnabled then
         refreshESP()
-        game.Players.PlayerAdded:Connect(addESP)
-        game.Players.PlayerRemoving:Connect(removeESP)
-        game.Players.LocalPlayer.CharacterAdded:Connect(refreshESP)
     else
         for _, player in pairs(game.Players:GetPlayers()) do
-            removeESP(player)
-        end
-    end
-end
-
-Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(toggleESP)
-
--- Aimbot
-local AimbotEnabled = false
-Tabs.Aimbot:AddToggle("Aimbot", { Title = "Aimbot" }):OnChanged(function(Value)
-    AimbotEnabled = Value
-end)
-
-local function getClosestEnemyPlayer()
-    local localPlayer = game.Players.LocalPlayer
-    local closestPlayer = nil
-    local shortestDistance = math.huge
-
-    for _, player in pairs(game.Players:GetPlayers()) do
-        if player ~= localPlayer and player.Team ~= localPlayer.Team and player.Character and player.Character:FindFirstChild("Head") then
-            local distance = (localPlayer.Character.Head.Position - player.Character.Head.Position).Magnitude
-            if distance < shortestDistance then
-                shortestDistance = distance
-                closestPlayer = player
+            local head = player.Character and player.Character:FindFirstChild("Head")
+            local esp = head and head:FindFirstChild("ESPBox")
+            if esp then
+                esp:Destroy()
             end
-        end
-    end
-
-    return closestPlayer
-end
-
-local aimbotConnection
-
-game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and AimbotEnabled and input.UserInputType == Enum.UserInputType.MouseButton2 then
-        aimbotConnection = game:GetService("RunService").RenderStepped:Connect(function()
-            local closestPlayer = getClosestEnemyPlayer()
-            if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
-                local currentPosition = workspace.CurrentCamera.CFrame.Position
-                local targetPosition = closestPlayer.Character.Head.Position
-                local newCFrame = CFrame.new(currentPosition, targetPosition)
-                workspace.CurrentCamera.CFrame = newCFrame:Lerp(newCFrame, 0.5)
-            end
-        end)
-    end
-end)
-
-game:GetService("UserInputService").InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        if aimbotConnection then
-            aimbotConnection:Disconnect()
         end
     end
 end)
@@ -206,18 +119,16 @@ local brightnessEnabled = false
 Tabs.Configuracoes:AddToggle("BrightnessControl", { Title = "Controle de Brilho" }):OnChanged(function(Value)
     brightnessEnabled = Value
     if not brightnessEnabled then
-        game:GetService("Lighting").Brightness = 1 -- Restaura o brilho padrão
+        game:GetService("Lighting").Brightness = 1
     end
 end)
 
-local BrightnessSlider
-BrightnessSlider = Tabs.Configuracoes:AddSlider("BrightnessSlider", {
+Tabs.Configuracoes:AddSlider("BrightnessSlider", {
     Title = "Ajuste de Brilho",
     Min = 0,
     Max = 100,
     Default = 100
-})
-BrightnessSlider.OnChanged:Connect(function(Value)
+}):OnChanged(function(Value)
     if brightnessEnabled then
         game:GetService("Lighting").Brightness = Value / 100
     end
