@@ -1,3 +1,4 @@
+-- Carregar Bibliotecas
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
@@ -11,7 +12,7 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
--- Abas
+-- Criar Abas
 local Tabs = {
     Jogador = Window:AddTab({ Title = "Jogador" }),
     Teleporte = Window:AddTab({ Title = "Teleporte" }),
@@ -22,8 +23,10 @@ local Tabs = {
 
 -- Variáveis
 local WalkSpeed = 16
-local UserInputService = game:GetService("UserInputService")
+local InfiniteJump = false
+local WalkOnWater = false
 local espEnabled = false
+local UserInputService = game:GetService("UserInputService")
 
 -- Funções de utilidade
 local function ensureCharacterAndHumanoid()
@@ -33,33 +36,24 @@ local function ensureCharacterAndHumanoid()
     return character, humanoid
 end
 
--- Controle de Velocidade de Caminhada com + e -
+-- Jogador - Controle de Velocidade
 Tabs.Jogador:AddLabel("Use + e - para alterar a velocidade de caminhada")
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-
+    local _, humanoid = ensureCharacterAndHumanoid()
     if input.KeyCode == Enum.KeyCode.Equals or input.KeyCode == Enum.KeyCode.KeypadPlus then
-        -- Aumentar velocidade
         WalkSpeed = math.min(WalkSpeed + 1, 100)
-        local _, humanoid = ensureCharacterAndHumanoid()
-        if humanoid then
-            humanoid.WalkSpeed = WalkSpeed
-        end
+        if humanoid then humanoid.WalkSpeed = WalkSpeed end
         Fluent:Notify({ Title = "Velocidade de Caminhada", Content = "Aumentada para " .. WalkSpeed, Duration = 2 })
     elseif input.KeyCode == Enum.KeyCode.Minus or input.KeyCode == Enum.KeyCode.KeypadMinus then
-        -- Diminuir velocidade
         WalkSpeed = math.max(WalkSpeed - 1, 0)
-        local _, humanoid = ensureCharacterAndHumanoid()
-        if humanoid then
-            humanoid.WalkSpeed = WalkSpeed
-        end
+        if humanoid then humanoid.WalkSpeed = WalkSpeed end
         Fluent:Notify({ Title = "Velocidade de Caminhada", Content = "Reduzida para " .. WalkSpeed, Duration = 2 })
     end
 end)
 
--- Pulo Infinito
-local InfiniteJump = false
+-- Jogador - Pulo Infinito
 Tabs.Jogador:AddToggle("InfiniteJump", { Title = "Pulo Infinito" }):OnChanged(function(Value)
     InfiniteJump = Value
 end)
@@ -67,45 +61,32 @@ end)
 game:GetService("UserInputService").JumpRequest:Connect(function()
     if InfiniteJump then
         local _, humanoid = ensureCharacterAndHumanoid()
-        if humanoid then
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-        end
+        if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
     end
 end)
 
--- Walk on Water
-local WalkOnWater = false
+-- Jogador - Walk on Water
 Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(function(Value)
     WalkOnWater = Value
-    local character, humanoid = ensureCharacterAndHumanoid()
-    local rootPart = character:WaitForChild("HumanoidRootPart")
-
-    if WalkOnWater then
-        rootPart.Touched:Connect(function(hit)
-            if hit.Name == "Ocean" then
-                rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
-            end
-        end)
-    end
 end)
 
 -- Teleporte
 Tabs.Teleporte:AddButton({
     Title = "Teleport Island - Cachoeira",
     Callback = function()
-        local character, humanoid = ensureCharacterAndHumanoid()
+        local character = ensureCharacterAndHumanoid()
         local rootPart = character:WaitForChild("HumanoidRootPart")
         rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5) -- Coordenadas da Cachoeira
     end
 })
 
--- ESP: ESP Player
+-- ESP Player
 local function createESP(player)
     local highlight = Instance.new("Highlight")
     highlight.Adornee = player.Character
-    highlight.FillColor = Color3.new(1, 0, 0) -- Vermelho
-    highlight.OutlineColor = Color3.new(0, 0, 0) -- Preto
-    highlight.FillTransparency = 0.5 -- Transparência do preenchimento
+    highlight.FillColor = Color3.new(1, 0, 0)
+    highlight.OutlineColor = Color3.new(0, 0, 0)
+    highlight.FillTransparency = 0.5
     highlight.OutlineTransparency = 0
     highlight.Parent = player.Character
 end
@@ -113,30 +94,21 @@ end
 local function removeESP(player)
     if player.Character then
         local highlight = player.Character:FindFirstChildOfClass("Highlight")
-        if highlight then
-            highlight:Destroy()
-        end
+        if highlight then highlight:Destroy() end
     end
 end
 
 local function updateESP(state)
     for _, player in pairs(game.Players:GetPlayers()) do
         if player ~= game.Players.LocalPlayer then
-            if state then
-                createESP(player)
-            else
-                removeESP(player)
-            end
+            if state then createESP(player) else removeESP(player) end
         end
     end
 end
 
--- Monitorar novos jogadores entrando ou saindo
 game.Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
-        if espEnabled then
-            createESP(player)
-        end
+        if espEnabled then createESP(player) end
     end)
 end)
 
@@ -149,11 +121,11 @@ Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(function(Val
     updateESP(espEnabled)
 end)
 
--- Configurações: Controle de Brilho
-local brightnessEnabled = false
+-- Configurações
 Tabs.Configuracoes:AddToggle("BrightnessControl", { Title = "Controle de Brilho" }):OnChanged(function(Value)
-    brightnessEnabled = Value
-    if not brightnessEnabled then
+    if Value then
+        game:GetService("Lighting").Brightness = 2
+    else
         game:GetService("Lighting").Brightness = 1
     end
 end)
@@ -161,7 +133,7 @@ end)
 Tabs.Configuracoes:AddButton({
     Title = "Copiar Discord",
     Callback = function()
-        setclipboard("https://discord.gg/seulink") -- Insira o link desejado
+        setclipboard("https://discord.gg/seulink")
     end
 })
 
@@ -171,8 +143,4 @@ InterfaceManager:SetLibrary(Fluent)
 
 -- Finalizar
 Window:SelectTab(1)
-Fluent:Notify({
-    Title = "TRIHUB",
-    Content = "O sistema foi carregado com sucesso!",
-    Duration = 5
-})
+Fluent:Notify({ Title = "TRIHUB", Content = "O sistema foi carregado com sucesso!", Duration = 5 })
