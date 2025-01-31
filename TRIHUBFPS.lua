@@ -2,7 +2,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Criação da janela principal
+-- Criar a janela principal
 local Window = Fluent:CreateWindow({
     Title = "TRIHUB",
     TabWidth = 160,
@@ -11,7 +11,7 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
--- Abas
+-- Criar abas
 local Tabs = {
     Jogador = Window:AddTab({ Title = "Jogador" }),
     Teleporte = Window:AddTab({ Title = "Teleporte" }),
@@ -19,7 +19,13 @@ local Tabs = {
     Configuracoes = Window:AddTab({ Title = "Configurações" })
 }
 
--- Jogador: Pulo infinito
+-- Função para obter o personagem do jogador
+local function getCharacter()
+    local player = game.Players.LocalPlayer
+    return player.Character or player.CharacterAdded:Wait()
+end
+
+-- Pulo infinito
 local InfiniteJump = false
 Tabs.Jogador:AddToggle("InfiniteJump", { Title = "Pulo Infinito" }):OnChanged(function(Value)
     InfiniteJump = Value
@@ -27,7 +33,7 @@ end)
 
 game:GetService("UserInputService").JumpRequest:Connect(function()
     if InfiniteJump then
-        local character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
+        local character = getCharacter()
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
             humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
@@ -35,23 +41,7 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
     end
 end)
 
--- Jogador: Walk on Water
-local WalkOnWater = false
-Tabs.Jogador:AddToggle("WalkOnWater", { Title = "Walk on Water" }):OnChanged(function(Value)
-    WalkOnWater = Value
-    local character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
-    local rootPart = character:WaitForChild("HumanoidRootPart")
-
-    if WalkOnWater then
-        rootPart.Touched:Connect(function(hit)
-            if hit.Name == "Ocean" then
-                rootPart.Velocity = Vector3.new(rootPart.Velocity.X, 0, rootPart.Velocity.Z)
-            end
-        end)
-    end
-end)
-
--- Jogador: Aimbot
+-- Aimbot
 local AimbotEnabled = false
 local AimbotOnHead = false
 Tabs.Jogador:AddToggle("Aimbot", { Title = "Aimbot" }):OnChanged(function(Value)
@@ -76,15 +66,14 @@ local function getClosestPlayer()
             end
         end
     end
-
     return closestPlayer
 end
 
 game:GetService("RunService").RenderStepped:Connect(function()
     if AimbotEnabled then
         local closestPlayer = getClosestPlayer()
-        if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
-            local aimPart = AimbotOnHead and closestPlayer.Character.Head or closestPlayer.Character.PrimaryPart
+        if closestPlayer and closestPlayer.Character then
+            local aimPart = closestPlayer.Character:FindFirstChild(AimbotOnHead and "Head" or "HumanoidRootPart")
             if aimPart then
                 workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, aimPart.Position)
             end
@@ -92,110 +81,43 @@ game:GetService("RunService").RenderStepped:Connect(function()
     end
 end)
 
--- Jogador: Controle de Velocidade de Caminhada
-local WalkSpeed = 16
-Tabs.Jogador:AddLabel("Use + e - para alterar a velocidade de caminhada")
-local UserInputService = game:GetService("UserInputService")
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    
-    local character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-
-    if input.KeyCode == Enum.KeyCode.Equals or input.KeyCode == Enum.KeyCode.KeypadPlus then
-        WalkSpeed = math.min(WalkSpeed + 1, 100)
-        if humanoid then humanoid.WalkSpeed = WalkSpeed end
-        Fluent:Notify({ Title = "Velocidade de Caminhada", Content = "Aumentada para " .. WalkSpeed, Duration = 2 })
-    elseif input.KeyCode == Enum.KeyCode.Minus or input.KeyCode == Enum.KeyCode.KeypadMinus then
-        WalkSpeed = math.max(WalkSpeed - 1, 0)
-        if humanoid then humanoid.WalkSpeed = WalkSpeed end
-        Fluent:Notify({ Title = "Velocidade de Caminhada", Content = "Reduzida para " .. WalkSpeed, Duration = 2 })
-    end
-end)
-
--- Teleporte: Teleport Island
+-- Teleporte
 Tabs.Teleporte:AddButton({
     Title = "Teleport Island",
     Callback = function()
-        Window:Dialog({
-            Title = "Teleport Island",
-            Content = "Selecione um local:",
-            Buttons = {
-                {
-                    Title = "Cachoeira",
-                    Callback = function()
-                        local player = game.Players.LocalPlayer
-                        local character = player.Character or player.CharacterAdded:Wait()
-                        local rootPart = character:WaitForChild("HumanoidRootPart")
-                        rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
-                    end
-                }
-            }
-        })
+        local character = getCharacter()
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if rootPart then
+            rootPart.CFrame = CFrame.new(6060.2, 400.4, 628.5)
+        end
     end
 })
 
--- ESP: ESP Player com cores de equipe
+-- ESP
 local espEnabled = false
-
-local function getTeamColor(player)
-    if player.Team == game.Players.LocalPlayer.Team then
-        return Color3.fromRGB(0, 0, 255) -- Azul
-    else
-        return Color3.fromRGB(255, 0, 0) -- Vermelho
-    end
-end
-
-local function addESP(player)
-    if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-        local head = player.Character.Head
-
-        if not head:FindFirstChild("ESPBox") then
-            local box = Instance.new("BoxHandleAdornment")
-            box.Name = "ESPBox"
-            box.Size = player.Character:GetExtentsSize()
-            box.Adornee = player.Character
-            box.AlwaysOnTop = true
-            box.ZIndex = 10
-            box.Color3 = getTeamColor(player)
-            box.Transparency = 0.5
-            box.Parent = head
-        end
-    end
-end
-
-local function removeESP(player)
-    if player.Character and player.Character:FindFirstChild("Head") then
-        local esp = player.Character.Head:FindFirstChild("ESPBox")
-        if esp then
-            esp:Destroy()
-        end
-    end
-end
-
-local function toggleESP(state)
+Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(function(state)
     espEnabled = state
-    if espEnabled then
-        for _, player in pairs(game.Players:GetPlayers()) do
-            addESP(player)
-        end
-        game.Players.PlayerAdded:Connect(addESP)
-        game.Players.PlayerRemoving:Connect(removeESP)
-    else
-        for _, player in pairs(game.Players:GetPlayers()) do
-            removeESP(player)
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player.Character and player.Character:FindFirstChild("Head") then
+            if espEnabled then
+                local box = Instance.new("BoxHandleAdornment")
+                box.Size = player.Character:GetExtentsSize()
+                box.Adornee = player.Character
+                box.AlwaysOnTop = true
+                box.ZIndex = 10
+                box.Color3 = player.Team == game.Players.LocalPlayer.Team and Color3.fromRGB(0, 0, 255) or Color3.fromRGB(255, 0, 0)
+                box.Transparency = 0.5
+                box.Name = "ESPBox"
+                box.Parent = player.Character.Head
+            else
+                local esp = player.Character.Head:FindFirstChild("ESPBox")
+                if esp then esp:Destroy() end
+            end
         end
     end
-end
-
-Tabs.ESP:AddToggle("ESPPlayer", { Title = "ESP Player" }):OnChanged(toggleESP)
+end)
 
 -- Configurações
-Tabs.Configuracoes:AddParagraph({
-    Title = "Configurações",
-    Content = "Configure suas preferências aqui."
-})
 Tabs.Configuracoes:AddButton({
     Title = "Copiar Discord",
     Callback = function()
@@ -207,7 +129,7 @@ Tabs.Configuracoes:AddButton({
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 
--- Finalizar
+-- Selecionar a primeira aba e notificar o usuário
 Window:SelectTab(1)
 Fluent:Notify({
     Title = "TRIHUB",
