@@ -21,13 +21,8 @@ local Tabs = {
 
 -- Jogador: Aimbot
 local AimbotEnabled = false
-local AimbotOnHead = false
 Tabs.Jogador:AddToggle("Aimbot", { Title = "Aimbot" }):OnChanged(function(Value)
     AimbotEnabled = Value
-end)
-
-Tabs.Jogador:AddToggle("AimbotOnHead", { Title = "Aimbot na Cabeça" }):OnChanged(function(Value)
-    AimbotOnHead = Value
 end)
 
 local function getClosestEnemy()
@@ -48,14 +43,27 @@ local function getClosestEnemy()
     return closestEnemy
 end
 
+local UserInputService = game:GetService("UserInputService")
+local aiming = false
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aiming = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aiming = false
+    end
+end)
+
+-- Atualizar mira apenas quando estiver segurando o botão direito do mouse
 game:GetService("RunService").RenderStepped:Connect(function()
-    if AimbotEnabled then
+    if AimbotEnabled and aiming then
         local closestEnemy = getClosestEnemy()
         if closestEnemy and closestEnemy.Character and closestEnemy.Character:FindFirstChild("Head") then
-            local aimPart = AimbotOnHead and closestEnemy.Character.Head or closestEnemy.Character.PrimaryPart
-            if aimPart then
-                workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, aimPart.Position)
-            end
+            workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, closestEnemy.Character.Head.Position)
         end
     end
 end)
