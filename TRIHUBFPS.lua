@@ -105,7 +105,10 @@ game:GetService("RunService").RenderStepped:Connect(function()
     if AimbotEnabled and aiming then
         local closestEnemy = getClosestEnemy()
         if closestEnemy and closestEnemy.Character and closestEnemy.Character:FindFirstChild("Head") then
-            workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, closestEnemy.Character.Head.Position)
+            local headPos = closestEnemy.Character.Head.Position
+            local camera = workspace.CurrentCamera
+            local newCFrame = CFrame.new(camera.CFrame.Position, headPos)
+            camera.CFrame = camera.CFrame:Lerp(newCFrame, AimbotSmoothness)
         end
     end
 end)
