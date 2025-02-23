@@ -19,19 +19,61 @@ local Tabs = {
     Configuracoes = Window:AddTab({ Title = "Configurações" })
 }
 
--- Jogador: Aimbot
+-- Variáveis
 local AimbotEnabled = false
+local ESPEnabled = false
+local AimbotFOV = 100
+local AimbotSmoothness = 1
+local aiming = false
+
+-- Toggle para Aimbot
 Tabs.Jogador:AddToggle("Aimbot", { Title = "Aimbot" }):OnChanged(function(Value)
     AimbotEnabled = Value
 end)
 
+-- Toggle para ESP
+Tabs.ESP:AddToggle("ESP", { Title = "ESP" }):OnChanged(function(Value)
+    ESPEnabled = Value
+end)
+
+-- Função para ESP
+local function createESP(character)
+    if not character:FindFirstChildOfClass("Highlight") then
+        local highlight = Instance.new("Highlight")
+        highlight.Parent = character
+        highlight.Adornee = character
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.5
+    end
+end
+
+local function removeESP(character)
+    if character:FindFirstChildOfClass("Highlight") then
+        character:FindFirstChildOfClass("Highlight"):Destroy()
+    end
+end
+
+local function updateESP()
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if ESPEnabled then
+                createESP(player.Character)
+            else
+                removeESP(player.Character)
+            end
+        end
+    end
+end
+
+-- Função para Aimbot
 local function getClosestEnemy()
     local localPlayer = game.Players.LocalPlayer
     local closestEnemy = nil
-    local shortestDistance = math.huge
+    local shortestDistance = AimbotFOV
 
     for _, player in pairs(game.Players:GetPlayers()) do
-        if player ~= localPlayer and player.Team ~= localPlayer.Team and player.Character and player.Character:FindFirstChild("Head") then
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("Head") then
             local distance = (localPlayer.Character.Head.Position - player.Character.Head.Position).Magnitude
             if distance < shortestDistance then
                 shortestDistance = distance
@@ -43,9 +85,8 @@ local function getClosestEnemy()
     return closestEnemy
 end
 
+-- Eventos de clique do mouse
 local UserInputService = game:GetService("UserInputService")
-local aiming = false
-
 UserInputService.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
         aiming = true
@@ -58,8 +99,9 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- Atualizar mira apenas quando estiver segurando o botão direito do mouse
+-- Lógica do Aimbot e ESP
 game:GetService("RunService").RenderStepped:Connect(function()
+    updateESP()
     if AimbotEnabled and aiming then
         local closestEnemy = getClosestEnemy()
         if closestEnemy and closestEnemy.Character and closestEnemy.Character:FindFirstChild("Head") then
