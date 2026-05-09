@@ -1,6 +1,14 @@
 --[[
-    TRIX HUB v6 - Aimbot + ESP (Rayfield UI)
+    TRIX HUB v6.1 - Aimbot + ESP (Rayfield UI)
     100% Client-Side | Otimizado para Xeno Executor
+
+    Novidades 6.1:
+      - CHAMS com 3 modos: Team / Visibility / Custom
+      - AIMBOT redesenhado para realmente GRUDAR no alvo:
+          * Lock no MESMO alvo enquanto a tecla estiver pressionada
+          * Modo Instant (snap) opcional
+          * Smoothness corrigido (Lerp com fator alpha apropriado)
+          * Atualização contínua da posição prevista
 ]]
 
 ------------------------------------------------------------
@@ -30,8 +38,9 @@ local Camera      = workspace.CurrentCamera
 local Settings = {
     Aimbot = {
         Enabled         = false,
-        Smoothness      = 0.20,
-        FOVRadius       = 200,
+        Smoothness      = 0.35,   -- 0.05 = lento, 1 = instantâneo
+        Instant         = false,  -- snap imediato
+        FOVRadius       = 250,
         TeamCheck       = false,
         VisibleOnly     = false,
         HitPart         = "Head",
@@ -39,10 +48,11 @@ local Settings = {
         PredictionAmount= 0.135,
         Triggerbot      = false,
         TriggerbotDelay = 0.05,
-        MaxDistance     = 500,
+        MaxDistance     = 1000,
         AimBind         = "MouseButton2",
         TargetPriority  = "Crosshair",
         SilentAim       = false,
+        StickyTarget    = true,   -- mantém o mesmo alvo enquanto segura o bind
     },
     Visuals = {
         FOVCircle        = true,
@@ -51,18 +61,21 @@ local Settings = {
         ShowNames        = true,
         ShowHealth       = true,
         Chams            = false,
+        ChamsMode        = "Visibility",  -- "Team" | "Visibility" | "Custom"
         TracerType       = "Bottom",
         FOVColor         = Color3.fromRGB(180, 0, 255),
         FOVTransparency  = 0.6,
         BoxVisibleColor  = Color3.fromRGB(0, 255, 0),
         BoxWallColor     = Color3.fromRGB(255, 0, 0),
         TracerColor      = Color3.fromRGB(0, 255, 0),
-        ChamsColor       = Color3.fromRGB(0, 255, 255),
+        ChamsColor       = Color3.fromRGB(0, 255, 255), -- usado em modo Custom
+        ChamsVisibleColor= Color3.fromRGB(0, 255, 0),
+        ChamsHiddenColor = Color3.fromRGB(255, 0, 0),
     },
 }
 
 ------------------------------------------------------------
--- 3) RAYFIELD UI – CARREGAMENTO PROTEGIDO
+-- 3) RAYFIELD
 ------------------------------------------------------------
 local Rayfield
 local okLib, errLib = pcall(function()
@@ -75,24 +88,21 @@ if not okLib or not Rayfield then
 end
 
 local Window = Rayfield:CreateWindow({
-    Name             = "TRIX HUB v6",
-    LoadingTitle     = "TRIX HUB",
-    LoadingSubtitle  = "by você",
-    ConfigurationSaving = {
-        Enabled  = true,
-        FolderName = "TrixHub",
-        FileName   = "Config",
-    },
+    Name              = "TRIX HUB v6.1",
+    LoadingTitle      = "TRIX HUB",
+    LoadingSubtitle   = "Aimbot + ESP",
+    ConfigurationSaving = { Enabled = true, FolderName = "TrixHub", FileName = "Config" },
     KeySystem = false,
 })
 
 ------------------------------------------------------------
 -- 4) ESTADO
 ------------------------------------------------------------
-local ESPEnabled      = true
-local CacheESP        = {}
-local CurrentTarget   = nil
-local LastTriggerShot = 0
+local ESPEnabled       = true
+local CacheESP         = {}
+local LockedTarget     = nil   -- Player travado
+local LockedPart       = nil   -- BasePart alvo
+local LastTriggerShot  = 0
 
 local function safe(fn, ...)
     local ok, err = pcall(fn, ...)
@@ -107,11 +117,18 @@ local function getCharParts(char)
     return hum, root, head
 end
 
+local function getPlayerFromChar(char)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character == char then return p end
+    end
+    return nil
+end
+
 ------------------------------------------------------------
 -- 5) WALL CHECK
 ------------------------------------------------------------
 local rayParams = RaycastParams.new()
-rayParams.FilterType = Enum.RaycastFilterType.Exclude
+rayParams.FilterType  = Enum.RaycastFilterType.Exclude
 rayParams.IgnoreWater = true
 
 local function IsVisible(character)
@@ -126,7 +143,7 @@ local function IsVisible(character)
 end
 
 ------------------------------------------------------------
--- 6) PREDIÇÃO + MELHOR ALVO
+-- 6) PREDIÇÃO + ALVO
 ------------------------------------------------------------
 local function GetPredictedPosition(character, hitPart)
     if not hitPart then return Vector3.zero end
@@ -136,8 +153,10 @@ local function GetPredictedPosition(character, hitPart)
     return hitPart.Position + vel * Settings.Aimbot.PredictionAmount
 end
 
+-- Retorna PLAYER + PART (assim sabemos quem é para travar)
 local function GetBestTarget()
-    local bestTarget, bestScore = nil, Settings.Aimbot.FOVRadius + 1
+    local bestPlayer, bestPart = nil, nil
+    local bestScore = Settings.Aimbot.FOVRadius + 1
     local viewCenter = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and plr.Character then
@@ -154,8 +173,9 @@ local function GetBestTarget()
                                 local sd = (Vector2.new(sp.X, sp.Y) - viewCenter).Magnitude
                                 local score = (Settings.Aimbot.TargetPriority == "Distance") and dist or sd
                                 if sd <= Settings.Aimbot.FOVRadius and score < bestScore then
-                                    bestScore = score
-                                    bestTarget = part
+                                    bestScore  = score
+                                    bestPlayer = plr
+                                    bestPart   = part
                                 end
                             end
                         end
@@ -164,7 +184,15 @@ local function GetBestTarget()
             end
         end
     end
-    return bestTarget
+    return bestPlayer, bestPart
+end
+
+local function IsTargetValid(plr)
+    if not plr or not plr.Parent then return false end
+    if not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return false end
+    return true
 end
 
 ------------------------------------------------------------
@@ -186,7 +214,7 @@ local function IsAimPressed()
 end
 
 ------------------------------------------------------------
--- 8) SILENT AIM (opcional)
+-- 8) SILENT AIM
 ------------------------------------------------------------
 local silentAimHooked = false
 local function TrySetupSilentAim()
@@ -199,10 +227,10 @@ local function TrySetupSilentAim()
             local method = getnamecallmethod()
             if Settings.Aimbot.SilentAim and Settings.Aimbot.Enabled and IsAimPressed() then
                 if method == "FireServer" or method == "Fire" or method == "InvokeServer" then
-                    local target = GetBestTarget()
-                    if target then
+                    local _, part = GetBestTarget()
+                    if part then
                         local args = {...}
-                        local predicted = GetPredictedPosition(target.Parent, target)
+                        local predicted = GetPredictedPosition(part.Parent, part)
                         for i, v in ipairs(args) do
                             if typeof(v) == "Vector3" then args[i] = predicted end
                             if typeof(v) == "CFrame"  then args[i] = CFrame.new(predicted) end
@@ -256,7 +284,7 @@ local function CreateESPEntry()
         Box        = { Top=newLine(), Bottom=newLine(), Left=newLine(), Right=newLine() },
         Tracer     = newLine(),
         NameTag    = nil,
-        Highlights = {},
+        Highlight  = nil, -- ÚNICO highlight por player (no Character)
     }
 end
 
@@ -305,17 +333,49 @@ local function CreateNameTag(char, plr)
     return { Billboard = bb, NameLabel = nameLbl, HealthBar = hpBar }
 end
 
-local function ApplyChams(char, entry)
-    if not Settings.Visuals.Chams then return end
-    if entry.Highlights[char] then return end
-    local hl = Instance.new("Highlight")
-    hl.FillColor = Settings.Visuals.ChamsColor
-    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-    hl.FillTransparency = 0.6
-    hl.OutlineTransparency = 0.2
-    hl.Parent = char
-    entry.Highlights[char] = hl
+-- =================== CHAMS ===================
+local function GetChamsColor(plr, char)
+    local mode = Settings.Visuals.ChamsMode
+    if mode == "Team" then
+        if plr.Team and plr.TeamColor then
+            return plr.TeamColor.Color
+        else
+            return Color3.fromRGB(200, 200, 200) -- neutro
+        end
+    elseif mode == "Visibility" then
+        if IsVisible(char) then
+            return Settings.Visuals.ChamsVisibleColor
+        else
+            return Settings.Visuals.ChamsHiddenColor
+        end
+    else -- Custom
+        return Settings.Visuals.ChamsColor
+    end
 end
+
+local function ApplyOrUpdateChams(plr, char, entry)
+    if not Settings.Visuals.Chams then
+        if entry.Highlight then pcall(function() entry.Highlight:Destroy() end) end
+        entry.Highlight = nil
+        return
+    end
+
+    if not entry.Highlight or not entry.Highlight.Parent then
+        local hl = Instance.new("Highlight")
+        hl.Name              = "TRIX_Chams"
+        hl.OutlineColor      = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency  = 0.55
+        hl.OutlineTransparency = 0.15
+        hl.DepthMode         = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Parent            = char
+        entry.Highlight = hl
+    end
+
+    local color = GetChamsColor(plr, char)
+    entry.Highlight.FillColor    = color
+    entry.Highlight.OutlineColor = color
+end
+-- =============================================
 
 local function HideEntry(entry)
     for _, line in pairs(entry.Box) do line.Visible = false end
@@ -329,7 +389,7 @@ local function ClearEntry(entry)
     if entry.NameTag and entry.NameTag.Billboard then
         pcall(function() entry.NameTag.Billboard:Destroy() end)
     end
-    for _, hl in pairs(entry.Highlights) do pcall(function() hl:Destroy() end) end
+    if entry.Highlight then pcall(function() entry.Highlight:Destroy() end) end
 end
 
 local function UpdatePlayerESP(plr)
@@ -346,6 +406,7 @@ local function UpdatePlayerESP(plr)
     if not CacheESP[plr] then CacheESP[plr] = CreateESPEntry() end
     local entry = CacheESP[plr]
 
+    -- NameTag
     if Settings.Visuals.ShowNames then
         if not entry.NameTag or not entry.NameTag.Billboard or not entry.NameTag.Billboard.Parent then
             entry.NameTag = CreateNameTag(char, plr)
@@ -355,15 +416,13 @@ local function UpdatePlayerESP(plr)
         entry.NameTag = nil
     end
 
-    if Settings.Visuals.Chams then
-        ApplyChams(char, entry)
-    elseif next(entry.Highlights) then
-        for c, hl in pairs(entry.Highlights) do pcall(function() hl:Destroy() end); entry.Highlights[c] = nil end
-    end
+    -- Chams
+    ApplyOrUpdateChams(plr, char, entry)
 
     local visible = IsVisible(char)
     local boxColor = visible and Settings.Visuals.BoxVisibleColor or Settings.Visuals.BoxWallColor
 
+    -- Box
     if Settings.Visuals.BoxESP then
         local rootPos, rootOnScreen = Camera:WorldToViewportPoint(root.Position)
         local headPos, headOnScreen = Camera:WorldToViewportPoint(head.Position)
@@ -391,6 +450,7 @@ local function UpdatePlayerESP(plr)
         for _, line in pairs(entry.Box) do line.Visible = false end
     end
 
+    -- Tracer
     if Settings.Visuals.Tracers then
         local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
         if onScreen then
@@ -408,6 +468,7 @@ local function UpdatePlayerESP(plr)
         entry.Tracer.Visible = false
     end
 
+    -- NameTag conteúdo
     if entry.NameTag and Settings.Visuals.ShowNames then
         entry.NameTag.NameLabel.TextColor3 = visible and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 100, 100)
         if Settings.Visuals.ShowHealth and hum.MaxHealth > 0 then
@@ -424,36 +485,63 @@ end
 local function SetupPlayer(plr)
     if plr == LocalPlayer then return end
     plr.CharacterRemoving:Connect(function()
-        if CacheESP[plr] then HideEntry(CacheESP[plr]) end
+        if CacheESP[plr] then
+            HideEntry(CacheESP[plr])
+            -- Highlight some junto com o personagem; força nil para recriar no respawn
+            CacheESP[plr].Highlight = nil
+            if CacheESP[plr].NameTag then
+                pcall(function() CacheESP[plr].NameTag.Billboard:Destroy() end)
+                CacheESP[plr].NameTag = nil
+            end
+        end
+        if LockedTarget == plr then
+            LockedTarget = nil
+            LockedPart   = nil
+        end
     end)
 end
 for _, plr in ipairs(Players:GetPlayers()) do SetupPlayer(plr) end
 Players.PlayerAdded:Connect(SetupPlayer)
 Players.PlayerRemoving:Connect(function(plr)
     if CacheESP[plr] then ClearEntry(CacheESP[plr]); CacheESP[plr] = nil end
+    if LockedTarget == plr then LockedTarget = nil; LockedPart = nil end
 end)
 
 ------------------------------------------------------------
 -- 12) LOOP PRINCIPAL
 ------------------------------------------------------------
+local function ResolveTargetPart(plr)
+    if not plr or not plr.Character then return nil end
+    local part = plr.Character:FindFirstChild(Settings.Aimbot.HitPart)
+    if part then return part end
+    return plr.Character:FindFirstChild("Head")
+        or plr.Character:FindFirstChild("HumanoidRootPart")
+        or plr.Character:FindFirstChild("UpperTorso")
+end
+
 local mainConn
-mainConn = RunService.RenderStepped:Connect(function()
+mainConn = RunService.RenderStepped:Connect(function(dt)
     safe(UpdateFOVCircle)
 
+    -- ESP
     if ESPEnabled then
         for _, plr in ipairs(Players:GetPlayers()) do safe(UpdatePlayerESP, plr) end
     else
         for _, e in pairs(CacheESP) do HideEntry(e) end
     end
 
-    if not Settings.Aimbot.Enabled then return end
+    if not Settings.Aimbot.Enabled then
+        LockedTarget, LockedPart = nil, nil
+        return
+    end
 
+    -- TRIGGERBOT
     if Settings.Aimbot.Triggerbot then
         local now = tick()
         if now - LastTriggerShot >= Settings.Aimbot.TriggerbotDelay then
-            local target = GetBestTarget()
-            if target then
-                local sp, onScreen = Camera:WorldToViewportPoint(target.Position)
+            local _, part = GetBestTarget()
+            if part then
+                local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
                 if onScreen then
                     local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
                     if (Vector2.new(sp.X, sp.Y) - center).Magnitude < 40 then
@@ -468,128 +556,108 @@ mainConn = RunService.RenderStepped:Connect(function()
         end
     end
 
-    if not Settings.Aimbot.SilentAim and IsAimPressed() then
-        local target = GetBestTarget()
-        if target then
-            local predicted = GetPredictedPosition(target.Parent, target)
-            local cur = Camera.CFrame
-            local look = CFrame.lookAt(cur.Position, predicted)
-            local s = math.clamp(Settings.Aimbot.Smoothness, 0.05, 1)
-            Camera.CFrame = cur:Lerp(look, s)
-            CurrentTarget = target
-        else
-            CurrentTarget = nil
-        end
+    -- AIMBOT (Camera Lock) — só roda se SilentAim desligado
+    if Settings.Aimbot.SilentAim then return end
+
+    if not IsAimPressed() then
+        LockedTarget, LockedPart = nil, nil
+        return
+    end
+
+    -- Travamento sticky: mantém o mesmo alvo enquanto válido
+    if Settings.Aimbot.StickyTarget and IsTargetValid(LockedTarget) then
+        LockedPart = ResolveTargetPart(LockedTarget) or LockedPart
+    else
+        LockedTarget, LockedPart = GetBestTarget()
+    end
+
+    if not LockedTarget or not LockedPart then return end
+
+    local predicted = GetPredictedPosition(LockedTarget.Character, LockedPart)
+    local cur = Camera.CFrame
+    local look = CFrame.lookAt(cur.Position, predicted)
+
+    if Settings.Aimbot.Instant then
+        Camera.CFrame = look
+    else
+        -- Lerp baseado em delta time → suavidade independente de FPS
+        -- alpha = 1 - exp(-smoothness * 60 * dt)
+        local k = Settings.Aimbot.Smoothness * 60
+        local alpha = 1 - math.exp(-k * dt)
+        alpha = math.clamp(alpha, 0, 1)
+        Camera.CFrame = cur:Lerp(look, alpha)
     end
 end)
 
 ------------------------------------------------------------
--- 13) INTERFACE RAYFIELD
+-- 13) UI RAYFIELD
 ------------------------------------------------------------
 local MainTab   = Window:CreateTab("Main",    4483362458)
 local AimTab    = Window:CreateTab("Aimbot",  4483362458)
 local ESPTab    = Window:CreateTab("ESP",     4483362458)
+local ChamsTab  = Window:CreateTab("Chams",   4483362458)
 local AboutTab  = Window:CreateTab("Sobre",   4483362458)
 
 -- ===== MAIN =====
 MainTab:CreateSection("Controles principais")
-
-MainTab:CreateToggle({
-    Name = "Aimbot",
-    CurrentValue = false,
-    Flag = "AimbotEnabled",
-    Callback = function(v) Settings.Aimbot.Enabled = v end,
-})
-
-MainTab:CreateToggle({
-    Name = "ESP Master",
-    CurrentValue = true,
-    Flag = "ESPEnabled",
-    Callback = function(v)
-        ESPEnabled = v
+MainTab:CreateToggle({ Name="Aimbot", CurrentValue=false, Flag="AimbotEnabled",
+    Callback=function(v) Settings.Aimbot.Enabled = v end })
+MainTab:CreateToggle({ Name="ESP Master", CurrentValue=true, Flag="ESPEnabled",
+    Callback=function(v) ESPEnabled = v
         if not v then for _, e in pairs(CacheESP) do HideEntry(e) end end
-    end,
-})
-
-MainTab:CreateButton({
-    Name = "Unload Script",
-    Callback = function()
-        safe(function() if mainConn then mainConn:Disconnect() end end)
-        for _, e in pairs(CacheESP) do ClearEntry(e) end
-        CacheESP = {}
-        safe(function() FOVCircle:Remove() end)
-        safe(function() Rayfield:Destroy() end)
-        _G.TRIX_HUB_LOADED = false
-    end,
-})
+    end })
+MainTab:CreateButton({ Name="Unload Script", Callback=function()
+    safe(function() if mainConn then mainConn:Disconnect() end end)
+    for _, e in pairs(CacheESP) do ClearEntry(e) end
+    CacheESP = {}
+    safe(function() FOVCircle:Remove() end)
+    safe(function() Rayfield:Destroy() end)
+    _G.TRIX_HUB_LOADED = false
+end })
 
 -- ===== AIMBOT =====
 AimTab:CreateSection("Mira")
 
 AimTab:CreateSlider({
-    Name = "Smoothness",
-    Range = {5, 100},
-    Increment = 1,
-    Suffix = "%",
-    CurrentValue = 20,
-    Flag = "Smooth",
-    Callback = function(v) Settings.Aimbot.Smoothness = v / 100 end,
+    Name="Smoothness", Range={5,100}, Increment=1, Suffix="%",
+    CurrentValue=35, Flag="Smooth",
+    Callback=function(v) Settings.Aimbot.Smoothness = v / 100 end,
 })
+AimTab:CreateToggle({ Name="Instant Lock (snap)", CurrentValue=false, Flag="Instant",
+    Callback=function(v) Settings.Aimbot.Instant = v end })
+AimTab:CreateToggle({ Name="Sticky Target (gruda no alvo)", CurrentValue=true, Flag="Sticky",
+    Callback=function(v) Settings.Aimbot.StickyTarget = v end })
 
 AimTab:CreateSlider({
-    Name = "FOV Radius",
-    Range = {50, 600},
-    Increment = 5,
-    Suffix = "px",
-    CurrentValue = 200,
-    Flag = "FOVRadius",
-    Callback = function(v) Settings.Aimbot.FOVRadius = v end,
+    Name="FOV Radius", Range={50,800}, Increment=5, Suffix="px",
+    CurrentValue=250, Flag="FOVRadius",
+    Callback=function(v) Settings.Aimbot.FOVRadius = v end,
 })
-
 AimTab:CreateSlider({
-    Name = "Max Distance",
-    Range = {50, 2000},
-    Increment = 10,
-    Suffix = "studs",
-    CurrentValue = 500,
-    Flag = "MaxDist",
-    Callback = function(v) Settings.Aimbot.MaxDistance = v end,
+    Name="Max Distance", Range={50,3000}, Increment=10, Suffix="studs",
+    CurrentValue=1000, Flag="MaxDist",
+    Callback=function(v) Settings.Aimbot.MaxDistance = v end,
 })
-
 AimTab:CreateSlider({
-    Name = "Prediction",
-    Range = {0, 50},
-    Increment = 1,
-    Suffix = "%",
-    CurrentValue = 14,
-    Flag = "Pred",
-    Callback = function(v) Settings.Aimbot.PredictionAmount = v / 100 end,
+    Name="Prediction", Range={0,50}, Increment=1, Suffix="%",
+    CurrentValue=14, Flag="Pred",
+    Callback=function(v) Settings.Aimbot.PredictionAmount = v / 100 end,
 })
-
 AimTab:CreateDropdown({
-    Name = "Hit Part",
-    Options = {"Head", "UpperTorso", "HumanoidRootPart"},
-    CurrentOption = {"Head"},
-    Flag = "HitPart",
-    Callback = function(opt) Settings.Aimbot.HitPart = (typeof(opt)=="table" and opt[1]) or opt end,
+    Name="Hit Part", Options={"Head","UpperTorso","HumanoidRootPart"},
+    CurrentOption={"Head"}, Flag="HitPart",
+    Callback=function(opt) Settings.Aimbot.HitPart = (typeof(opt)=="table" and opt[1]) or opt end,
 })
-
 AimTab:CreateDropdown({
-    Name = "Aim Bind",
-    Options = {"MouseButton2", "MouseButton1", "MouseButton3", "LeftAlt", "E", "Q", "V", "F"},
-    CurrentOption = {"MouseButton2"},
-    Flag = "AimBind",
-    Callback = function(opt) Settings.Aimbot.AimBind = (typeof(opt)=="table" and opt[1]) or opt end,
+    Name="Aim Bind", Options={"MouseButton2","MouseButton1","MouseButton3","LeftAlt","E","Q","V","F"},
+    CurrentOption={"MouseButton2"}, Flag="AimBind",
+    Callback=function(opt) Settings.Aimbot.AimBind = (typeof(opt)=="table" and opt[1]) or opt end,
 })
-
 AimTab:CreateDropdown({
-    Name = "Target Priority",
-    Options = {"Crosshair", "Distance"},
-    CurrentOption = {"Crosshair"},
-    Flag = "Priority",
-    Callback = function(opt) Settings.Aimbot.TargetPriority = (typeof(opt)=="table" and opt[1]) or opt end,
+    Name="Target Priority", Options={"Crosshair","Distance"},
+    CurrentOption={"Crosshair"}, Flag="Priority",
+    Callback=function(opt) Settings.Aimbot.TargetPriority = (typeof(opt)=="table" and opt[1]) or opt end,
 })
-
 AimTab:CreateToggle({ Name="Prediction",   CurrentValue=true,  Flag="PredOn",
     Callback=function(v) Settings.Aimbot.Prediction = v end })
 AimTab:CreateToggle({ Name="Visible Only", CurrentValue=false, Flag="VisOnly",
@@ -597,94 +665,90 @@ AimTab:CreateToggle({ Name="Visible Only", CurrentValue=false, Flag="VisOnly",
 AimTab:CreateToggle({ Name="Team Check",   CurrentValue=false, Flag="TeamChk",
     Callback=function(v) Settings.Aimbot.TeamCheck = v end })
 
-AimTab:CreateSection("Recursos avançados")
-
-AimTab:CreateToggle({
-    Name = "Silent Aim (depende do jogo)",
-    CurrentValue = false,
-    Flag = "SilentAim",
-    Callback = function(v)
-        Settings.Aimbot.SilentAim = v
-        if v then TrySetupSilentAim() end
-    end,
-})
+AimTab:CreateSection("Avançado")
+AimTab:CreateToggle({ Name="Silent Aim (depende do jogo)", CurrentValue=false, Flag="SilentAim",
+    Callback=function(v) Settings.Aimbot.SilentAim = v; if v then TrySetupSilentAim() end end })
 AimTab:CreateToggle({ Name="Triggerbot", CurrentValue=false, Flag="Trigger",
     Callback=function(v) Settings.Aimbot.Triggerbot = v end })
 AimTab:CreateSlider({
-    Name = "Trigger Delay",
-    Range = {10, 500},
-    Increment = 5,
-    Suffix = "ms",
-    CurrentValue = 50,
-    Flag = "TrigDelay",
-    Callback = function(v) Settings.Aimbot.TriggerbotDelay = v / 1000 end,
+    Name="Trigger Delay", Range={10,500}, Increment=5, Suffix="ms",
+    CurrentValue=50, Flag="TrigDelay",
+    Callback=function(v) Settings.Aimbot.TriggerbotDelay = v / 1000 end,
 })
 
 -- ===== ESP =====
 ESPTab:CreateSection("ESP Visuals")
-
 ESPTab:CreateToggle({ Name="FOV Circle", CurrentValue=true, Flag="FOVOn",
     Callback=function(v) Settings.Visuals.FOVCircle = v end })
 ESPTab:CreateToggle({ Name="Box ESP", CurrentValue=true, Flag="BoxESP",
     Callback=function(v) Settings.Visuals.BoxESP = v end })
 ESPTab:CreateToggle({ Name="Tracers", CurrentValue=false, Flag="TracersOn",
     Callback=function(v) Settings.Visuals.Tracers = v end })
-ESPTab:CreateDropdown({
-    Name = "Tracer Origin",
-    Options = {"Bottom", "Top"},
-    CurrentOption = {"Bottom"},
-    Flag = "TracerOrigin",
-    Callback = function(opt) Settings.Visuals.TracerType = (typeof(opt)=="table" and opt[1]) or opt end,
-})
+ESPTab:CreateDropdown({ Name="Tracer Origin", Options={"Bottom","Top"}, CurrentOption={"Bottom"}, Flag="TracerOrigin",
+    Callback=function(opt) Settings.Visuals.TracerType = (typeof(opt)=="table" and opt[1]) or opt end })
 ESPTab:CreateToggle({ Name="Name Tags", CurrentValue=true, Flag="NameTags",
     Callback=function(v) Settings.Visuals.ShowNames = v end })
 ESPTab:CreateToggle({ Name="Health Bar", CurrentValue=true, Flag="HpBar",
     Callback=function(v) Settings.Visuals.ShowHealth = v end })
-ESPTab:CreateToggle({
-    Name = "Chams (Highlight)",
-    CurrentValue = false,
-    Flag = "ChamsOn",
-    Callback = function(v)
+
+ESPTab:CreateSection("Cores")
+ESPTab:CreateColorPicker({ Name="FOV Color",     Color=Settings.Visuals.FOVColor,        Flag="FOVColor",
+    Callback=function(v) Settings.Visuals.FOVColor = v end })
+ESPTab:CreateColorPicker({ Name="Box (Visível)", Color=Settings.Visuals.BoxVisibleColor, Flag="BoxVis",
+    Callback=function(v) Settings.Visuals.BoxVisibleColor = v end })
+ESPTab:CreateColorPicker({ Name="Box (Parede)",  Color=Settings.Visuals.BoxWallColor,    Flag="BoxWall",
+    Callback=function(v) Settings.Visuals.BoxWallColor = v end })
+ESPTab:CreateColorPicker({ Name="Tracer",        Color=Settings.Visuals.TracerColor,     Flag="TracerCol",
+    Callback=function(v) Settings.Visuals.TracerColor = v end })
+
+-- ===== CHAMS =====
+ChamsTab:CreateSection("Chams")
+ChamsTab:CreateToggle({ Name="Chams (Highlight)", CurrentValue=false, Flag="ChamsOn",
+    Callback=function(v)
         Settings.Visuals.Chams = v
         if not v then
             for _, e in pairs(CacheESP) do
-                for c, hl in pairs(e.Highlights) do pcall(function() hl:Destroy() end); e.Highlights[c] = nil end
+                if e.Highlight then pcall(function() e.Highlight:Destroy() end); e.Highlight = nil end
             end
         end
-    end,
+    end })
+
+ChamsTab:CreateDropdown({
+    Name="Chams Mode",
+    Options={"Visibility","Team","Custom"},
+    CurrentOption={"Visibility"},
+    Flag="ChamsMode",
+    Callback=function(opt) Settings.Visuals.ChamsMode = (typeof(opt)=="table" and opt[1]) or opt end,
 })
 
-ESPTab:CreateSection("Cores")
+ChamsTab:CreateSection("Modo Visibility")
+ChamsTab:CreateColorPicker({ Name="Cor (Visível)",  Color=Settings.Visuals.ChamsVisibleColor, Flag="ChamsVis",
+    Callback=function(v) Settings.Visuals.ChamsVisibleColor = v end })
+ChamsTab:CreateColorPicker({ Name="Cor (Atrás de parede)", Color=Settings.Visuals.ChamsHiddenColor, Flag="ChamsHid",
+    Callback=function(v) Settings.Visuals.ChamsHiddenColor = v end })
 
-ESPTab:CreateColorPicker({ Name="FOV Color",      Color=Settings.Visuals.FOVColor,        Flag="FOVColor",
-    Callback=function(v) Settings.Visuals.FOVColor = v end })
-ESPTab:CreateColorPicker({ Name="Box (Visível)",  Color=Settings.Visuals.BoxVisibleColor, Flag="BoxVis",
-    Callback=function(v) Settings.Visuals.BoxVisibleColor = v end })
-ESPTab:CreateColorPicker({ Name="Box (Parede)",   Color=Settings.Visuals.BoxWallColor,    Flag="BoxWall",
-    Callback=function(v) Settings.Visuals.BoxWallColor = v end })
-ESPTab:CreateColorPicker({ Name="Tracer",         Color=Settings.Visuals.TracerColor,     Flag="TracerCol",
-    Callback=function(v) Settings.Visuals.TracerColor = v end })
-ESPTab:CreateColorPicker({ Name="Chams",          Color=Settings.Visuals.ChamsColor,      Flag="ChamsCol",
+ChamsTab:CreateSection("Modo Custom")
+ChamsTab:CreateColorPicker({ Name="Cor Custom", Color=Settings.Visuals.ChamsColor, Flag="ChamsCol",
     Callback=function(v) Settings.Visuals.ChamsColor = v end })
 
+ChamsTab:CreateParagraph({Title="Modo Team", Content=
+    "No modo Team o chams usa automaticamente a cor do time de cada player. "..
+    "Não precisa configurar cor."
+})
+
 -- ===== SOBRE =====
-AboutTab:CreateSection("TRIX HUB v6")
-AboutTab:CreateParagraph({Title = "Informações", Content =
-    "TRIX HUB v6 - 100% client-side\n"..
-    "UI: Rayfield\n"..
-    "Compatível com Xeno Executor\n"..
-    "Use o Aim Bind para ativar a mira em tempo real."
+AboutTab:CreateSection("TRIX HUB v6.1")
+AboutTab:CreateParagraph({Title="Atualizações", Content=
+    "• Aimbot agora gruda no alvo (Sticky Target)\n"..
+    "• Smoothness baseado em delta time (consistente em qualquer FPS)\n"..
+    "• Modo Instant Lock para snap imediato\n"..
+    "• Chams com modos: Visibility, Team e Custom"
 })
 
 ------------------------------------------------------------
--- 14) NOTIFICAÇÃO + LOAD CONFIG
+-- 14) NOTIFICAÇÃO
 ------------------------------------------------------------
-Rayfield:Notify({
-    Title    = "TRIX HUB v6",
-    Content  = "Carregado com sucesso!",
-    Duration = 4,
-})
-
+Rayfield:Notify({ Title="TRIX HUB v6.1", Content="Carregado com sucesso!", Duration=4 })
 pcall(function() Rayfield:LoadConfiguration() end)
 
-print("[TRIX HUB v6] Carregado.")
+print("[TRIX HUB v6.1] Carregado.")
